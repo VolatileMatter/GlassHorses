@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-<script src="auth.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GlassHorses - Horse Breeding Sim</title>
   <link rel="stylesheet" href="styles.css">
+
+  <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+  <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+
   <script>
     // Track script loading state
     window.appLoaded = false;
@@ -24,19 +25,15 @@
       if (allLoaded) {
         window.appLoaded = true;
         console.log('✅ All scripts loaded successfully');
-        
-        // Dispatch custom event when all scripts are loaded
         document.dispatchEvent(new CustomEvent('allScriptsLoaded'));
       }
     }
     
-    // Error handler for script loading
     function handleScriptError(scriptName) {
       console.error(`❌ Failed to load script: ${scriptName}`);
-      window.scriptsLoaded[scriptName] = true; // Mark as loaded to prevent hangs
+      window.scriptsLoaded[scriptName] = true; 
       checkAllScriptsLoaded();
       
-      // Show error to user
       setTimeout(() => {
         const galleryEl = document.getElementById('gallery-list');
         if (galleryEl && !window.appLoaded) {
@@ -59,24 +56,26 @@
   </header>
 
   <nav>
-    <button id="authorize_button" style="display:none">Authorize Drive</button>
-<button id="signout_button" style="display:none">Sign Out</button>
-<button id="drive-test-btn" style="display:none">Create Player Save</button>
-<span id="user-name">Not logged in</span>
-<div id="drive-status"></div>
-<pre id="content"></pre>
-
-
-    <span id="user-name">Not logged in</span>
+    <div id="auth-controls">
+      <button id="authorize_button" style="display:none">🔐 Authorize Drive</button>
+      <button id="signout_button" style="display:none">🚪 Sign Out</button>
+      <span id="user-name">Checking status...</span>
+    </div>
   </nav>
 
   <main>
     <section id="single-player" class="section">
       <h2>🏇 Single Player Stable</h2>
       <p>Your personal horse breeding game (local + Google Drive saves).</p>
-      <button id="drive-test-btn">🗄️ Test Drive Save (Create Folder + test.md)</button>
-      <button id="breed-btn">🐴 Breed Horses</button>
-      <div id="drive-status"></div>
+      
+      <div class="actions">
+        <button id="drive-test-btn" style="display:none">🗄️ Create Player Save</button>
+        <button id="breed-btn">🐴 Breed Horses</button>
+      </div>
+
+      <div id="drive-status" class="drive-status-container"></div>
+      <pre id="content" style="display:none"></pre>
+      
       <div id="drive-debug" style="display: none; margin-top: 10px; font-size: 0.8em; color: #7f8c8d;"></div>
     </section>
 
@@ -86,10 +85,8 @@
     </section>
   </main>
 
-  <!-- Supabase CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
-  <!-- Application Scripts - CRITICAL ORDER with error handling -->
   <script src="config.js" onload="window.scriptsLoaded.config = true; checkAllScriptsLoaded();" 
           onerror="handleScriptError('config')"></script>
   <script src="auth.js" onload="window.scriptsLoaded.auth = true; checkAllScriptsLoaded();" 
@@ -101,20 +98,17 @@
   <script src="app.js" onload="window.scriptsLoaded.app = true; checkAllScriptsLoaded();" 
           onerror="handleScriptError('app')"></script>
   
-  <!-- Debug button (remove in production) -->
   <div style="position: fixed; bottom: 10px; right: 10px; z-index: 1000;">
     <button onclick="
       const debug = document.getElementById('drive-debug');
       debug.style.display = debug.style.display === 'none' ? 'block' : 'none';
       debug.innerHTML = `
-        <strong>Drive Status:</strong><br>
+        <strong>System Status:</strong><br>
         App Loaded: ${window.appLoaded}<br>
-        createPlayerSaveFolder: ${typeof window.createPlayerSaveFolder}<br>
-        gapi: ${typeof window.gapi}<br>
-        gapiInited: ${window.gapiInited}<br>
+        Drive API: ${typeof window.gapi !== 'undefined' ? 'Loaded' : 'Missing'}<br>
         Scripts: ${JSON.stringify(window.scriptsLoaded)}
       `;
-    " style="font-size: 0.7em; padding: 5px;">🐛 Debug</button>
+    " style="font-size: 0.7em; padding: 5px; opacity: 0.6;">🐛 Debug</button>
   </div>
 </body>
 </html>

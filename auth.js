@@ -7,11 +7,6 @@ let tokenClient;
 let gapiInited = false;
 let gisInited = false;
 
-// Hide buttons until ready
-document.getElementById('authorize_button') && (document.getElementById('authorize_button').style.visibility = 'hidden');
-document.getElementById('signout_button') && (document.getElementById('signout_button').style.visibility = 'hidden');
-document.getElementById('drive-test-btn') && (document.getElementById('drive-test-btn').style.visibility = 'hidden');
-
 /**
  * Callback after api.js is loaded.
  */
@@ -48,34 +43,48 @@ function gisLoaded() {
  */
 function maybeEnableButtons() {
   if (gapiInited && gisInited) {
-    document.getElementById('authorize_button').style.visibility = 'visible';
+    const authBtn = document.getElementById('authorize_button');
+    if (authBtn) {
+      authBtn.style.display = 'inline-block';
+    }
+    const userName = document.getElementById('user-name');
+    if (userName) {
+      userName.textContent = 'Ready to Login';
+    }
   }
 }
 
 /**
  * Sign in the user upon button click.
  */
-window.handleAuthClick = async function() {
+window.handleAuthClick = function() {
   tokenClient.callback = async (resp) => {
     if (resp.error !== undefined) {
       throw (resp);
     }
-    document.getElementById('signout_button').style.visibility = 'visible';
-    document.getElementById('drive-test-btn').style.visibility = 'visible';
-    document.getElementById('authorize_button').innerText = 'Refresh';
     
-    // Update UI
-    document.getElementById('user-name').textContent = 'Authorized';
-    
-    // List files to test
-    await listFiles();
+    // Update UI for logged-in state
+    document.getElementById('signout_button').style.display = 'inline-block';
+    document.getElementById('authorize_button').innerText = '🔄 Refresh Token';
+    document.getElementById('drive-test-btn').style.display = 'inline-block';
+    document.getElementById('user-name').textContent = '✅ Authorized';
+
+    // Store token for drive.js to access
+    window.GlassHorsesDrive = {
+      driveToken: resp.access_token
+    };
+
+    // Optional: list files to verify access
+    const content = document.getElementById('content');
+    if (content) {
+      content.style.display = 'block';
+      await listFiles();
+    }
   };
 
   if (gapi.client.getToken() === null) {
-    // Prompt the user to select a Google Account and ask for consent
     tokenClient.requestAccessToken({prompt: 'consent'});
   } else {
-    // Skip account chooser for existing session
     tokenClient.requestAccessToken({prompt: ''});
   }
 };
@@ -88,76 +97,47 @@ window.handleSignoutClick = function() {
   if (token !== null) {
     google.accounts.oauth2.revoke(token.access_token);
     gapi.client.setToken('');
+    
+    // Reset UI
     document.getElementById('content').innerText = '';
-    document.getElementById('authorize_button').innerText = 'Authorize Drive';
-    document.getElementById('signout_button').style.visibility = 'hidden';
-    document.getElementById('drive-test-btn').style.visibility = 'hidden';
+    document.getElementById('content').style.display = 'none';
+    document.getElementById('authorize_button').innerText = '🔐 Authorize Drive';
+    document.getElementById('signout_button').style.display = 'none';
+    document.getElementById('drive-test-btn').style.display = 'none';
     document.getElementById('user-name').textContent = 'Not logged in';
+    
+    // Clear the internal drive object
+    window.GlassHorsesDrive = null;
   }
 };
 
 /**
- * Print first 10 files.
+ * Print metadata for files in the user's Drive.
  */
 async function listFiles() {
   let response;
   try {
     response = await gapi.client.drive.files.list({
-      'pageSize': 10,
-      'fields': 'files(id, name)',
+      pageSize: 10,
+      fields: 'files(id, name)',
     });
   } catch (err) {
     document.getElementById('content').innerText = err.message;
     return;
   }
   const files = response.result.files;
-  if (!files || files.length == 0) {
+  if (!files || files.length === 0) {
     document.getElementById('content').innerText = 'No files found.';
     return;
   }
-  const output = files.reduce((str, file) => `${str}${file.name} (${file.id})\n`, 'Files:\n');
+  const output = files.reduce(
+    (str, file) => `${str}${file.name} (${file.id})\n`,
+    'Files found in your Drive:\n'
+  );
   document.getElementById('content').innerText = output;
 }
 
-// GLASSHORSES: Your createPlayerSaveFolder function (uses official token)
-window.createPlayerSaveFolder = async function() {
-  const statusEl = document.getElementById('drive-status');
-  if (!statusEl) return;
-  
-  try {
-    if (!gapi.client.getToken()) {
-      throw new Error('Please authorize first');
-    }
-    
-    statusEl.innerHTML = '📝 Creating player save folder...';
-    
-    const response = await gapi.client.drive.files.create({
-      resource: {
-        name: `GlassHorses_PlayerSave_${Date.now()}`,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: []  // My Drive root
-      },
-      fields: 'id,name'
-    });
-    
-    statusEl.innerHTML = `
-      <div style="color: green;">
-        🎉 SUCCESS! Folder created:<br>
-        📁 ${response.result.name}<br>
-        🆔 ID: ${response.result.id}
-      </div>
-    `;
-    
-  } catch (error) {
-    statusEl.innerHTML = `
-      <div style="color: red;">
-        ❌ ${error.result?.error?.message || error.message}
-      </div>
-    `;
-  }
-};
-
-// DOM Ready
+// Attach event listeners when the DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
   const authBtn = document.getElementById('authorize_button');
   const signoutBtn = document.getElementById('signout_button');
@@ -167,9 +147,3 @@ document.addEventListener('DOMContentLoaded', function() {
   if (signoutBtn) signoutBtn.onclick = window.handleSignoutClick;
   if (driveTestBtn) driveTestBtn.onclick = window.createPlayerSaveFolder;
 });
-
-// EXPOSE GLOBAL FUNCTIONS
-window.signInWithGoogle = window.handleAuthClick;
-window.signOut = window.handleSignoutClick;
-window.gapiLoaded = gapiLoaded;
-window.gisLoaded = gisLoaded;
