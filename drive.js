@@ -1,4 +1,4 @@
-// === DIAGNOSTIC VERSION - TEST TOKEN PERMISSIONS ===
+// === DIAGNOSTIC VERSION - FIXED DRIVE API LOADING ===
 
 window.createPlayerSaveFolder = async function createPlayerSaveFolder() {
   const statusEl = document.getElementById('drive-status');
@@ -6,7 +6,7 @@ window.createPlayerSaveFolder = async function createPlayerSaveFolder() {
   
   statusEl.innerHTML = `
     <div class="drive-status">
-      🔍 Running Drive diagnostic test...
+      🔍 Running Drive diagnostic...
     </div>
   `;
   
@@ -14,201 +14,184 @@ window.createPlayerSaveFolder = async function createPlayerSaveFolder() {
     // Step 1: Get session
     const { data: { session } } = await sb.auth.getSession();
     
-    if (!session) {
-      throw new Error('No session found. Please login.');
-    }
-    
-    if (!session.provider_token) {
-      throw new Error('No Google OAuth token found in session.');
-    }
-    
-    // Step 2: Show token info (sanitized)
-    const tokenPreview = session.provider_token.substring(0, 30) + '...';
-    const userEmail = session.user.email;
-    const scopes = session.provider_refresh_token ? 'Has refresh token' : 'No refresh token';
+    if (!session) throw new Error('No session. Please login.');
+    if (!session.provider_token) throw new Error('No Google OAuth token.');
     
     statusEl.innerHTML += `
-      <div class="drive-status">
-        🔐 Session Info:
-        <br>User: ${userEmail}
-        <br>Token: ${tokenPreview}
-        <br>${scopes}
-        <br><br>🔄 Testing token permissions...
-      </div>
+      <br>✅ User: ${session.user.email}
+      <br>✅ Token present
+      <br><br>📦 Loading Google API...
     `;
     
-    console.log('📊 Session data:', {
-      hasProviderToken: !!session.provider_token,
-      tokenLength: session.provider_token.length,
-      hasRefreshToken: !!session.provider_refresh_token,
-      user: session.user.email
-    });
-    
-    // Step 3: Try to decode token (JWT) to see scopes
-    try {
-      // Simple JWT decode (just for viewing payload)
-      const tokenParts = session.provider_token.split('.');
-      if (tokenParts.length === 3) {
-        const payload = JSON.parse(atob(tokenParts[1].replace(/-/g, '+').replace(/_/g, '/')));
-        console.log('🔍 Token payload:', payload);
-        
-        if (payload.scope) {
-          statusEl.innerHTML += `
-            <br>📋 Token scopes: ${payload.scope}
-          `;
-        }
-      }
-    } catch (e) {
-      console.log('⚠️ Could not decode token:', e.message);
-    }
-    
-    // Step 4: Test with a SIMPLE Google API call
-    statusEl.innerHTML += `
-      <br><br>🌐 Testing Google API connection...
-    `;
-    
-    // Load Google API directly
+    // Step 2: Load Google API
     await new Promise((resolve, reject) => {
-      if (window.gapi) return resolve();
+      if (window.gapi && window.gapi.load) {
+        console.log('gapi already loaded');
+        return resolve();
+      }
       
       const script = document.createElement('script');
       script.src = 'https://apis.google.com/js/api.js';
-      script.onload = () => resolve();
+      script.onload = resolve;
       script.onerror = () => reject(new Error('Failed to load Google API'));
+      script.async = true;
       document.head.appendChild(script);
     });
     
-    // Initialize minimally
+    statusEl.innerHTML += `<br>✅ Google API loaded`;
+    
+    // Step 3: LOAD THE DRIVE API SPECIFICALLY
+    statusEl.innerHTML += `<br>📁 Loading Drive API module...`;
+    
     await new Promise((resolve, reject) => {
-      gapi.load('client', () => {
-        gapi.client.init({}).then(resolve).catch(reject);
+      gapi.load('client:drive', {
+        callback: resolve,
+        onerror: reject,
+        timeout: 10000
       });
     });
     
-    statusEl.innerHTML += `
-      <br>✅ Google API loaded
-      <br><br>🔑 Setting token and testing...
-    `;
+    statusEl.innerHTML += `<br>✅ Drive API module loaded`;
     
-    // Set the token
+    // Step 4: Initialize the client
+    statusEl.innerHTML += `<br>🔧 Initializing client...`;
+    
+    await gapi.client.init({
+      // No API key needed for OAuth
+      discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
+    });
+    
+    statusEl.innerHTML += `<br>✅ Client initialized`;
+    
+    // Step 5: Verify Drive API is available
+    if (!gapi.client.drive) {
+      throw new Error('Drive API not loaded into gapi.client');
+    }
+    
+    statusEl.innerHTML += `<br>✅ gapi.client.drive is available`;
+    
+    // Step 6: Set the OAuth token
+    statusEl.innerHTML += `<br>🔑 Setting OAuth token...`;
+    
     gapi.auth.setToken({
       access_token: session.provider_token,
+      scope: 'https://www.googleapis.com/auth/drive.appdata',
       token_type: 'Bearer'
     });
     
-    // Step 5: Try the SIMPLEST possible Drive API call
-    // List files in appDataFolder (empty response expected)
-    statusEl.innerHTML += `
-      <br>📂 Testing appDataFolder access...
-    `;
+    statusEl.innerHTML += `<br>✅ Token set`;
     
-    const response = await gapi.client.drive.files.list({
+    // Step 7: TEST: List files in appDataFolder
+    statusEl.innerHTML += `<br><br>📂 Testing appDataFolder access...`;
+    
+    const listResponse = await gapi.client.drive.files.list({
       spaces: 'appDataFolder',
-      pageSize: 1,
-      fields: 'files(id,name)'
+      pageSize: 5,
+      fields: 'files(id, name, mimeType, size)',
+      q: "trashed = false"
     });
     
-    // If we get here, it WORKED!
+    const fileCount = listResponse.result.files ? listResponse.result.files.length : 0;
+    
+    statusEl.innerHTML += `
+      <br>✅ Can list files in appDataFolder
+      <br>📊 Found ${fileCount} file(s)
+    `;
+    
+    if (fileCount > 0) {
+      statusEl.innerHTML += `<br>Files: ${listResponse.result.files.map(f => f.name).join(', ')}`;
+    }
+    
+    // Step 8: CREATE a test file
+    statusEl.innerHTML += `<br><br>📝 Creating test file...`;
+    
+    const fileName = `glasshorses_test_${Date.now()}.txt`;
+    const fileContent = `Test file created by GlassHorses\nTime: ${new Date().toISOString()}\nUser: ${session.user.email}`;
+    
+    const createResponse = await gapi.client.drive.files.create({
+      resource: {
+        name: fileName,
+        parents: ['appDataFolder'],
+        mimeType: 'text/plain'
+      },
+      media: {
+        mimeType: 'text/plain',
+        body: fileContent
+      },
+      fields: 'id, name, mimeType, createdTime'
+    });
+    
+    // SUCCESS!
     statusEl.innerHTML = `
       <div class="drive-success">
-        🎉 SUCCESS! Drive permissions are CORRECT!
+        🎉 COMPLETE SUCCESS!
         <br><br>
-        ✅ Google API connected
-        <br>✅ OAuth token accepted
-        <br>✅ Drive.appdata scope granted
-        <br>✅ Can access appDataFolder
+        <strong>✅ Google Drive Integration WORKS!</strong>
         <br><br>
-        Found ${response.result.files.length} file(s) in appDataFolder
+        📄 File Created: ${createResponse.result.name}
+        <br>🔑 File ID: ${createResponse.result.id}
+        <br>📅 Created: ${new Date(createResponse.result.createdTime).toLocaleString()}
         <br><br>
-        <small>Now try creating a file...</small>
+        <small>File saved to Google Drive app-specific storage.</small>
+        <br><small>Check Google Drive → Settings → Manage Apps to view.</small>
       </div>
     `;
     
-    console.log('✅ Drive list successful:', response.result);
-    
-    // Step 6: NOW try creating a file
-    setTimeout(async () => {
-      try {
-        statusEl.innerHTML += `
-          <br>📝 Attempting to create test file...
-        `;
-        
-        const fileMetadata = {
-          name: `test_${Date.now()}.txt`,
-          parents: ['appDataFolder'],
-          mimeType: 'text/plain'
-        };
-        
-        const createResponse = await gapi.client.drive.files.create({
-          resource: fileMetadata,
-          media: {
-            mimeType: 'text/plain',
-            body: 'Test content from GlassHorses'
-          },
-          fields: 'id,name'
-        });
-        
-        statusEl.innerHTML = `
-          <div class="drive-success">
-            🎉 COMPLETE SUCCESS!
-            <br><br>
-            ✅ File created: ${createResponse.result.name}
-            <br>✅ File ID: ${createResponse.result.id}
-            <br><br>
-            <strong>Google Drive integration is WORKING!</strong>
-          </div>
-        `;
-        
-      } catch (createError) {
-        console.error('Create error:', createError);
-        statusEl.innerHTML += `
-          <div class="drive-error">
-            ❌ File creation failed
-            <br>Error: ${createError.message}
-            <br><br>
-            But listing worked! This suggests a different issue.
-          </div>
-        `;
-      }
-    }, 1000);
+    console.log('✅ File created successfully:', createResponse.result);
     
   } catch (error) {
     console.error('❌ Diagnostic error:', error);
     
-    let errorDetails = error.message;
+    let errorMessage = error.message;
+    let errorDetails = '';
     let suggestions = '';
     
-    if (error.message.includes('403') || error.message.includes('permission')) {
+    // Parse Google API errors
+    if (error.result && error.result.error) {
+      errorMessage = error.result.error.message || errorMessage;
+      if (error.result.error.errors) {
+        errorDetails = error.result.error.errors.map(e => 
+          `${e.domain}: ${e.message} (${e.reason})`
+        ).join('<br>');
+      }
+    }
+    
+    // Provide specific suggestions
+    if (errorMessage.includes('insufficientFilePermissions') || errorMessage.includes('403')) {
       suggestions = `
-        <br><br><strong>Likely Issue:</strong> OAuth token missing Drive scope
+        <br><br><strong>PERMISSION ISSUE:</strong>
+        <br>OAuth token doesn't have Drive permissions.
         <br><br><strong>To Fix:</strong>
         <br>1. Logout completely
         <br>2. Clear browser cache/cookies
         <br>3. Login again
-        <br>4. When Google asks for permissions, ensure Drive access is granted
+        <br>4. When Google asks, GRANT Drive permissions
         <br><br>
-        <button onclick="window.signOut && signOut(); setTimeout(() => window.location.reload(), 1000)">
+        <button onclick="signOut(); setTimeout(() => location.reload(), 1000)" 
+                style="padding: 8px 16px; margin-top: 10px;">
           🔄 Logout & Retry
         </button>
       `;
-    } else if (error.message.includes('token')) {
+    } else if (errorMessage.includes('drive is undefined')) {
       suggestions = `
-        <br><br><strong>Issue:</strong> Invalid or expired token
-        <br>Try logging out and back in.
+        <br><br><strong>API LOADING ISSUE:</strong>
+        <br>Drive API module failed to load.
+        <br>Check console for Google API errors.
       `;
     }
     
     statusEl.innerHTML = `
       <div class="drive-error">
-        ❌ Drive Diagnostic Failed
+        ❌ Diagnostic Failed
         <br><br>
-        <strong>Error:</strong> ${errorDetails}
+        <strong>${errorMessage}</strong>
+        ${errorDetails ? `<br><small>${errorDetails}</small>` : ''}
         ${suggestions}
         <br><br>
-        <small>Check console (F12) for detailed error.</small>
+        <small>Full error in console (F12)</small>
       </div>
     `;
   }
 };
 
-console.log('✅ Diagnostic version loaded');
+console.log('✅ Diagnostic drive.js loaded');
