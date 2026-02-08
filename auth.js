@@ -1,5 +1,5 @@
 // === GSI + DRIVE API TOKEN (Working Solution) ===
-const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '515090161385-jnmj9bp7p9i6uegdr0lqo5opbte2ivee.apps.googleusercontent.com';
 
 let currentUser = null;
 let driveToken = null;
