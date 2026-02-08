@@ -1,7 +1,7 @@
 // === AUTHENTICATION MODULE (HYBRID SUPABASE + GAPI DRIVE) ===
 
 // CONFIG - Replace with your actual Google Client ID
-const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.googleusercontent.com'; // From Google Console
+const GOOGLE_CLIENT_ID = '515090161385-jnmj9bp7p9i6uegdr0lqo5opbte2ivee.apps.googleusercontent.com'; // From Google Console
 
 // === SESSION RESTORATION ===
 async function restoreSessionAndPreload() {
