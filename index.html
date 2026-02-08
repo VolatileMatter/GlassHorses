@@ -13,8 +13,8 @@
   </header>
 
   <nav>
-    <button id="login-btn" onclick="signInWithGoogle()">Login with Google</button>
-    <button id="logout-btn" onclick="signOut()" style="display: none;">Logout</button>
+    <button id="login-btn">Login with Google</button>
+    <button id="logout-btn" style="display: none;">Logout</button>
     <span id="user-name">Not logged in</span>
   </nav>
 
@@ -22,7 +22,7 @@
     <section id="single-player" class="section">
       <h2>🏇 Single Player Stable</h2>
       <p>Your personal horse breeding game (local + Google Drive saves).</p>
-      <button onclick="createPlayerSaveFolder()">🗄️ Test Drive Save (Create Folder + test.md)</button>
+      <button id="drive-test-btn">🗄️ Test Drive Save (Create Folder + test.md)</button>
       <button onclick="alert('Horse breeding logic coming next!')">🐴 Breed Horses</button>
       <div id="drive-status"></div>
     </section>
@@ -35,13 +35,13 @@
 
   <!-- Supabase CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://apis.google.com/js/api.js"></script>
+  <!-- Google API is now loaded dynamically in drive.js, removed from here -->
   
-  <!-- Application Scripts -->
+  <!-- Application Scripts - CRITICAL ORDER -->
   <script src="config.js"></script>
   <script src="auth.js"></script>
+  <script src="drive.js"></script> <!-- Load BEFORE gallery.js -->
   <script src="gallery.js"></script>
-  <script src="drive.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

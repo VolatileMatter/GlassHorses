@@ -25,6 +25,7 @@ async function initGoogleDrive() {
         // Load Drive API v3 discovery document
         await window.gapi.client.load('drive', 'v3');
         gapiInited = true;
+        console.log('✅ Google Drive API initialized');
         resolve(true);
       } catch (error) {
         reject(new Error('Failed to load Drive API: ' + error.message));
@@ -36,8 +37,14 @@ async function initGoogleDrive() {
 }
 
 // === FIXED CREATE PLAYER SAVE FOLDER + test.md ===
-async function createPlayerSaveFolder() {
+// IMPORTANT: This function MUST be defined in global scope
+window.createPlayerSaveFolder = async function createPlayerSaveFolder() {
   const statusEl = document.getElementById('drive-status');
+  if (!statusEl) {
+    console.error('Drive status element not found');
+    return;
+  }
+  
   statusEl.innerHTML = '🔄 Initializing Google Drive...';
   
   try {
@@ -113,4 +120,12 @@ async function createPlayerSaveFolder() {
       </div>
     `;
   }
+};
+
+// === EXPORT FUNCTION TO GLOBAL SCOPE (Backup) ===
+// Also attach to window object for safety
+if (typeof window !== 'undefined') {
+  window.createPlayerSaveFolder = window.createPlayerSaveFolder || createPlayerSaveFolder;
 }
+
+console.log('✅ Drive module loaded, createPlayerSaveFolder function available:', typeof window.createPlayerSaveFolder);

@@ -38,3 +38,31 @@ async function signOut() {
   await sb.auth.signOut();
   document.getElementById('drive-status').innerHTML = '';
 }
+
+// === SETUP EVENT LISTENERS AFTER DOM IS READY ===
+document.addEventListener('DOMContentLoaded', () => {
+  // Login button
+  const loginBtn = document.getElementById('login-btn');
+  if (loginBtn) {
+    loginBtn.addEventListener('click', signInWithGoogle);
+  }
+  
+  // Logout button
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', signOut);
+  }
+  
+  // Drive test button
+  const driveTestBtn = document.getElementById('drive-test-btn');
+  if (driveTestBtn) {
+    driveTestBtn.addEventListener('click', () => {
+      if (typeof createPlayerSaveFolder === 'function') {
+        createPlayerSaveFolder();
+      } else {
+        console.error('createPlayerSaveFolder function not loaded yet');
+        alert('Google Drive module is still loading. Please wait a moment and try again.');
+      }
+    });
+  }
+});
