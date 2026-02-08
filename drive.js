@@ -1,8 +1,15 @@
-// === OPTIMIZED GOOGLE DRIVE MODULE ===
+// === GOOGLE DRIVE MODULE ===
+// Note: gapiInited is declared here, not in config.js
 
-// Global flags
-let gapiInited = false;
-let driveInitializationPromise = null;
+// === INITIALIZE IMMEDIATELY ===
+// This ensures the function is available as soon as possible
+(function() {
+  // Global flags - ONLY DECLARED HERE
+  window.gapiInited = false;
+  window.driveInitializationPromise = null;
+  
+  console.log('📦 Drive module loading...');
+})();
 
 // === LOAD GOOGLE SCRIPT ===
 async function loadGoogleScript() {
@@ -31,7 +38,7 @@ async function loadGoogleScript() {
 
 // === OPTIMIZED GOOGLE DRIVE INIT ===
 async function initGoogleDrive() {
-  if (gapiInited) {
+  if (window.gapiInited) {
     console.log('✅ Google Drive already initialized');
     return true;
   }
@@ -46,7 +53,7 @@ async function initGoogleDrive() {
           console.log('📁 Loading Drive API v3...');
           // Load Drive API v3 discovery document
           await window.gapi.client.load('drive', 'v3');
-          gapiInited = true;
+          window.gapiInited = true;
           console.log('✅ Google Drive API initialized');
           resolve(true);
         } catch (error) {
@@ -68,16 +75,16 @@ async function initGoogleDrive() {
 // === CACHED INITIALIZATION ===
 async function ensureDriveInitialized() {
   // Return cached promise if available
-  if (driveInitializationPromise) {
+  if (window.driveInitializationPromise) {
     console.log('♻️ Using cached Drive initialization');
-    return driveInitializationPromise;
+    return window.driveInitializationPromise;
   }
   
   console.log('🚀 Starting Drive initialization');
-  driveInitializationPromise = (async () => {
+  window.driveInitializationPromise = (async () => {
     try {
       if (!window.gapi) await loadGoogleScript();
-      if (!gapiInited) await initGoogleDrive();
+      if (!window.gapiInited) await initGoogleDrive();
       
       // Store successful initialization in localStorage
       localStorage.setItem('drive_last_init', Date.now().toString());
@@ -85,12 +92,12 @@ async function ensureDriveInitialized() {
       return true;
     } catch (error) {
       // Clear failed promise
-      driveInitializationPromise = null;
+      window.driveInitializationPromise = null;
       throw error;
     }
   })();
   
-  return driveInitializationPromise;
+  return window.driveInitializationPromise;
 }
 
 // === PRELOAD IN BACKGROUND ===
@@ -127,144 +134,149 @@ async function preloadGoogleDrive() {
 }
 
 // === MAIN CREATE FOLDER FUNCTION ===
-const createPlayerSaveFolder = async function() {
-  const statusEl = document.getElementById('drive-status');
-  if (!statusEl) {
-    console.error('Drive status element not found');
-    return;
-  }
+function createPlayerSaveFolder() {
+  console.log('🎯 createPlayerSaveFolder called');
   
-  // Clear any previous status
-  statusEl.innerHTML = '';
-  
-  try {
-    // Check login first
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session || !session.provider_token) {
-      throw new Error('Please login with Google first!');
+  // Use async function inside
+  return (async function() {
+    const statusEl = document.getElementById('drive-status');
+    if (!statusEl) {
+      console.error('Drive status element not found');
+      return;
     }
     
-    // Show loading state
-    statusEl.innerHTML = `
-      <div class="drive-status">
-        🚀 Starting Google Drive process...
-        <br><small>This may take a few seconds</small>
-      </div>
-    `;
+    // Clear any previous status
+    statusEl.innerHTML = '';
     
-    // Step 1: Ensure Drive API is initialized (with progress)
-    statusEl.innerHTML = `
-      <div class="drive-status">
-        🔄 Initializing Google Drive API...
-        <br><small>Step 1/3: Loading required libraries</small>
-      </div>
-    `;
-    
-    await ensureDriveInitialized();
-    
-    // Step 2: Set authentication token
-    statusEl.innerHTML = `
-      <div class="drive-status">
-        🔐 Authenticating with Google...
-        <br><small>Step 2/3: Setting up permissions</small>
-      </div>
-    `;
-    
-    window.gapi.auth.setToken({
-      access_token: session.provider_token,
-      expires_at: Date.now() + 3600000 // 1 hour from now
-    });
-    
-    // Step 3: Create folder
-    statusEl.innerHTML = `
-      <div class="drive-status">
-        📁 Creating your game folder...
-        <br><small>Step 3/3: Setting up save location</small>
-      </div>
-    `;
-    
-    const drive = window.gapi.client.drive;
-    
-    // 1. Create appDataFolder "HorseGame" (HIDDEN)
-    const folderMetadata = {
-      name: 'HorseGame',
-      mimeType: 'application/vnd.google-apps.folder',
-      parents: ['appDataFolder']
-    };
+    try {
+      // Check login first
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session || !session.provider_token) {
+        throw new Error('Please login with Google first!');
+      }
+      
+      // Show loading state
+      statusEl.innerHTML = `
+        <div class="drive-status">
+          🚀 Starting Google Drive process...
+          <br><small>This may take a few seconds</small>
+        </div>
+      `;
+      
+      // Step 1: Ensure Drive API is initialized (with progress)
+      statusEl.innerHTML = `
+        <div class="drive-status">
+          🔄 Initializing Google Drive API...
+          <br><small>Step 1/3: Loading required libraries</small>
+        </div>
+      `;
+      
+      await ensureDriveInitialized();
+      
+      // Step 2: Set authentication token
+      statusEl.innerHTML = `
+        <div class="drive-status">
+          🔐 Authenticating with Google...
+          <br><small>Step 2/3: Setting up permissions</small>
+        </div>
+      `;
+      
+      window.gapi.auth.setToken({
+        access_token: session.provider_token,
+        expires_at: Date.now() + 3600000 // 1 hour from now
+      });
+      
+      // Step 3: Create folder
+      statusEl.innerHTML = `
+        <div class="drive-status">
+          📁 Creating your game folder...
+          <br><small>Step 3/3: Setting up save location</small>
+        </div>
+      `;
+      
+      const drive = window.gapi.client.drive;
+      
+      // 1. Create appDataFolder "HorseGame" (HIDDEN)
+      const folderMetadata = {
+        name: 'HorseGame',
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: ['appDataFolder']
+      };
 
-    const folder = await drive.files.create({
-      resource: folderMetadata,
-      fields: 'id,name'
-    });
+      const folder = await drive.files.create({
+        resource: folderMetadata,
+        fields: 'id,name'
+      });
 
-    const folderId = folder.result.id;
-    
-    // 2. Create test.md with timestamp
-    const timestamp = new Date().toISOString();
-    const testContent = `# GlassHorses Save File\n\n**Created:** ${timestamp}\n**Player:** ${session.user.user_metadata.full_name || session.user.email}\n**Folder ID:** ${folderId}`;
+      const folderId = folder.result.id;
+      
+      // 2. Create test.md with timestamp
+      const timestamp = new Date().toISOString();
+      const testContent = `# GlassHorses Save File\n\n**Created:** ${timestamp}\n**Player:** ${session.user.user_metadata.full_name || session.user.email}\n**Folder ID:** ${folderId}`;
 
-    const fileMetadata = {
-      name: 'test.md',
-      parents: [folderId]
-    };
+      const fileMetadata = {
+        name: 'test.md',
+        parents: [folderId]
+      };
 
-    const file = await drive.files.create({
-      resource: fileMetadata,
-      media: {
-        mimeType: 'text/plain',
-        body: testContent
-      },
-      fields: 'id'
-    });
+      const file = await drive.files.create({
+        resource: fileMetadata,
+        media: {
+          mimeType: 'text/plain',
+          body: testContent
+        },
+        fields: 'id'
+      });
 
-    // Success message
-    statusEl.innerHTML = `
-      <div class="drive-success">
-        🎉 SUCCESS! Drive folder + test.md created!
-        <br><strong>Folder ID:</strong> ${folderId}
-        <br><strong>File ID:</strong> ${file.result.id}
-        <br><strong>Created:</strong> ${timestamp}
-        <br><small>✅ Hidden in Google Drive appDataFolder</small>
-        <br><br>
-        <em>Next time will be much faster! 🚀</em>
-      </div>
-    `;
+      // Success message
+      statusEl.innerHTML = `
+        <div class="drive-success">
+          🎉 SUCCESS! Drive folder + test.md created!
+          <br><strong>Folder ID:</strong> ${folderId}
+          <br><strong>File ID:</strong> ${file.result.id}
+          <br><strong>Created:</strong> ${timestamp}
+          <br><small>✅ Hidden in Google Drive appDataFolder</small>
+          <br><br>
+          <em>Next time will be much faster! 🚀</em>
+        </div>
+      `;
 
-    console.log('✅ Drive folder created:', folderId, 'File:', file.result.id);
-    
-    // Store the folder ID for future use
-    localStorage.setItem('drive_folder_id', folderId);
-    
-  } catch (error) {
-    console.error('❌ Drive error:', error);
-    
-    // Handle specific error cases
-    let errorMessage = error.message || 'Unknown error';
-    let errorDetails = '';
-    
-    if (errorMessage.includes('token')) {
-      errorDetails = '<br><small>Your session may have expired. Try logging out and back in.</small>';
-    } else if (errorMessage.includes('load')) {
-      errorDetails = '<br><small>Google Drive API failed to load. Check your internet connection.</small>';
-    } else if (errorMessage.includes('permission')) {
-      errorDetails = '<br><small>Please ensure you granted Drive permissions during login.</small>';
+      console.log('✅ Drive folder created:', folderId, 'File:', file.result.id);
+      
+      // Store the folder ID for future use
+      localStorage.setItem('drive_folder_id', folderId);
+      
+    } catch (error) {
+      console.error('❌ Drive error:', error);
+      
+      // Handle specific error cases
+      let errorMessage = error.message || 'Unknown error';
+      let errorDetails = '';
+      
+      if (errorMessage.includes('token')) {
+        errorDetails = '<br><small>Your session may have expired. Try logging out and back in.</small>';
+      } else if (errorMessage.includes('load')) {
+        errorDetails = '<br><small>Google Drive API failed to load. Check your internet connection.</small>';
+      } else if (errorMessage.includes('permission')) {
+        errorDetails = '<br><small>Please ensure you granted Drive permissions during login.</small>';
+      }
+      
+      statusEl.innerHTML = `
+        <div class="drive-error">
+          ❌ Drive Error: ${errorMessage}
+          ${errorDetails}
+          <br><small>Open F12 console for full details</small>
+        </div>
+      `;
+      
+      // Clear initialization cache on certain errors
+      if (errorMessage.includes('token') || errorMessage.includes('auth')) {
+        window.driveInitializationPromise = null;
+        localStorage.removeItem('drive_last_init');
+      }
     }
-    
-    statusEl.innerHTML = `
-      <div class="drive-error">
-        ❌ Drive Error: ${errorMessage}
-        ${errorDetails}
-        <br><small>Open F12 console for full details</small>
-      </div>
-    `;
-    
-    // Clear initialization cache on certain errors
-    if (errorMessage.includes('token') || errorMessage.includes('auth')) {
-      driveInitializationPromise = null;
-      localStorage.removeItem('drive_last_init');
-    }
-  }
-};
+  })();
+}
 
 // === CHECK FOR EXISTING FOLDER ===
 async function checkExistingDriveFolder() {
@@ -296,9 +308,9 @@ async function checkExistingDriveFolder() {
 }
 
 // === CRITICAL: EXPORT ALL FUNCTIONS TO GLOBAL SCOPE ===
-// This ensures functions are available when called from HTML
-if (typeof window !== 'undefined') {
-  // Main function
+// Execute immediately when script loads
+(function() {
+  // Main function - attach to window immediately
   window.createPlayerSaveFolder = createPlayerSaveFolder;
   
   // Helper functions
@@ -309,11 +321,12 @@ if (typeof window !== 'undefined') {
   // Debug functions
   window.getDriveStatus = () => ({
     gapiLoaded: !!window.gapi,
-    gapiInited,
-    driveInitializationPromise: !!driveInitializationPromise,
-    lastInit: localStorage.getItem('drive_last_init')
+    gapiInited: window.gapiInited,
+    driveInitializationPromise: !!window.driveInitializationPromise,
+    lastInit: localStorage.getItem('drive_last_init'),
+    createPlayerSaveFolder: typeof window.createPlayerSaveFolder
   });
-}
-
-console.log('✅ Drive module loaded with caching and preload support');
-console.log('✅ createPlayerSaveFolder exported to window:', typeof window.createPlayerSaveFolder);
+  
+  console.log('✅ Drive module loaded and functions exported');
+  console.log('📊 Drive status:', window.getDriveStatus());
+})();

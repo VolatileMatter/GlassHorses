@@ -16,10 +16,6 @@ const sb = supabase.createClient(supabaseUrl, supabaseKey, {
 // === GOOGLE DRIVE CONFIGURATION ===
 const CLIENT_ID = '515090161385-jnmj9bp7p9i6uegdr0lqo5opbte2ivee.apps.googleusercontent.com';
 
-// === GLOBAL STATE ===
-let gapiInited = false;
-let driveClientReady = false;
-
 // === APP VERSION ===
 const APP_VERSION = '1.0.0';
 const DRIVE_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes

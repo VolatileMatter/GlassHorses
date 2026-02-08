@@ -13,29 +13,29 @@ async function restoreSessionAndPreload() {
     
     // Verify Drive function is available
     if (typeof window.createPlayerSaveFolder !== 'function') {
-      console.warn('⚠️ createPlayerSaveFolder not available yet, will retry');
-      // Retry in 1 second
-      setTimeout(() => {
-        if (typeof window.createPlayerSaveFolder === 'function') {
-          console.log('✅ createPlayerSaveFolder now available');
-        } else {
-          console.error('❌ createPlayerSaveFolder still not available after retry');
-        }
-      }, 1000);
+      console.warn('⚠️ createPlayerSaveFolder not available');
+      // Show status to user
+      const statusEl = document.getElementById('drive-status');
+      if (statusEl && statusEl.innerHTML === '') {
+        statusEl.innerHTML = `
+          <div class="drive-status">
+            ⚠️ Google Drive module loading...
+            <br><small>Please wait a moment before using Drive features</small>
+          </div>
+        `;
+      }
+    } else {
+      console.log('✅ createPlayerSaveFolder is available');
     }
     
-    // Wait a moment for page to settle, then preload Drive
+    // Try to preload Drive
     setTimeout(() => {
       if (window.preloadGoogleDrive && typeof window.preloadGoogleDrive === 'function') {
         window.preloadGoogleDrive().then(success => {
           if (success) {
             console.log('✅ Drive preload initiated');
           }
-        }).catch(error => {
-          console.warn('⚠️ Preload failed:', error.message);
         });
-      } else {
-        console.warn('⚠️ preloadGoogleDrive function not available');
       }
     }, 1000);
     
@@ -60,9 +60,9 @@ sb.auth.onAuthStateChange((event, session) => {
     }, 1000);
   } else {
     // Clear Drive cache on logout
-    if (typeof driveInitializationPromise !== 'undefined') {
+    if (window.driveInitializationPromise !== undefined) {
       console.log('🧹 Clearing Drive cache on logout');
-      driveInitializationPromise = null;
+      window.driveInitializationPromise = null;
     }
     localStorage.removeItem('drive_last_init');
     localStorage.removeItem('drive_folder_id');
@@ -140,8 +140,8 @@ async function signOut() {
     localStorage.removeItem('drive_folder_id');
     
     // Reset Drive state
-    if (typeof driveInitializationPromise !== 'undefined') {
-      driveInitializationPromise = null;
+    if (window.driveInitializationPromise !== undefined) {
+      window.driveInitializationPromise = null;
     }
     
     document.getElementById('drive-status').innerHTML = '';
@@ -172,43 +172,41 @@ document.addEventListener('DOMContentLoaded', () => {
     logoutBtn.addEventListener('click', signOut);
   }
   
-  // Drive test button with enhanced error handling
+  // Drive test button
   const driveTestBtn = document.getElementById('drive-test-btn');
   if (driveTestBtn) {
     driveTestBtn.addEventListener('click', () => {
       console.log('🎯 Drive test button clicked');
-      console.log('📊 Drive function status:', {
-        createPlayerSaveFolder: typeof window.createPlayerSaveFolder,
-        gapi: typeof window.gapi,
-        windowLoaded: window.appLoaded
-      });
       
       if (typeof window.createPlayerSaveFolder === 'function') {
+        console.log('✅ Calling createPlayerSaveFolder');
         window.createPlayerSaveFolder();
       } else {
-        console.error('❌ createPlayerSaveFolder function not available');
+        console.error('❌ createPlayerSaveFolder not available');
         
-        // Show detailed error to user
         const statusEl = document.getElementById('drive-status');
         if (statusEl) {
           statusEl.innerHTML = `
             <div class="drive-error">
-              ❌ Google Drive module not loaded
-              <br><small>This can happen if:</small>
-              <br>• Page is still loading (wait a moment)
-              <br>• Script failed to load (check console F12)
-              <br>• Network issue (check connection)
+              ❌ Google Drive not ready
+              <br><small>The Drive module is still loading. Please:</small>
+              <br>1. Wait a few seconds and try again
+              <br>2. Refresh the page if problem persists
+              <br>3. Check console (F12) for errors
               <br><br>
-              <button onclick="window.reloadDriveModule && window.reloadDriveModule()" style="margin-right: 10px;">
-                🔄 Retry Loading Drive
-              </button>
-              <button onclick="window.location.reload()">
-                📄 Refresh Page
-              </button>
+              <button onclick="window.location.reload()">🔄 Refresh Page</button>
             </div>
           `;
         }
       }
+    });
+  }
+  
+  // Breed button
+  const breedBtn = document.getElementById('breed-btn');
+  if (breedBtn) {
+    breedBtn.addEventListener('click', () => {
+      alert('Horse breeding logic coming soon! 🐎');
     });
   }
   
@@ -222,5 +220,4 @@ document.addEventListener('DOMContentLoaded', () => {
 if (typeof window !== 'undefined') {
   window.signInWithGoogle = signInWithGoogle;
   window.signOut = signOut;
-  window.restoreSessionAndPreload = restoreSessionAndPreload;
 }
