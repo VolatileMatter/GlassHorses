@@ -74,7 +74,7 @@ window.createPlayerSaveFolder = async function createPlayerSaveFolder() {
     const response = await gapi.client.drive.files.create({
       resource: {
         name: `glasshorses_test_${Date.now()}.txt`,
-        parents: []
+        parents: ['appDataFolder']
       },
       media: {
         mimeType: 'text/plain',
