@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self' https://*.supabase.co https://usfzylsxzznpkuklehbt.supabase.co;
+    connect-src 'self' https://*.supabase.co https://usfzylsxzznpkuklehbt.supabase.co wss://*.supabase.co;
+    script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+    style-src 'self' 'unsafe-inline';
+  ">
+  <title>Horse Breeding Sim</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+    nav { margin-bottom: 20px; }
+    nav button { margin-right: 10px; padding: 8px 16px; }
+    #user-name { color: #666; font-weight: bold; }
+    #gallery-list { display: flex; flex-wrap: wrap; gap: 20px; }
+    .horse-card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; min-width: 250px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Horse Breeding Simulator</h1>
+    <nav>
+      <button onclick="signInWithGoogle()">Login with Google</button>
+      <button onclick="signOut()">Logout</button>
+      <span id="user-name">Not logged in</span>
+    </nav>
+  </header>
+
+  <main>
+    <section id="single-player">
+      <h2>Single Player Stable</h2>
+      <p>Your breeding game will go here (local JS, no login needed).</p>
+      <button onclick="alert('Breeding logic coming soon!')">Breed Horses</button>
+    </section>
+
+    <section id="community-gallery">
+      <h2>Community Gallery</h2>
+      <div id="gallery-list">Gallery loads here...</div>
+    </section>
+  </main>
+
+  <!-- Supabase CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <script>
+    // Replace with YOUR Supabase project details
+    const supabaseUrl = 'https://usfzylsxzznpkuklehbt.supabase.co';
+    const supabaseKey = 'sb_publishable_cHJ36KwZaEEC38BXJXEnfQ_X_e1RU8U';
+    const sb = supabase.createClient(supabaseUrl, supabaseKey);
+
+    // Auth state listener
+    sb.auth.onAuthStateChange((event, session) => {
+      document.getElementById('user-name').textContent = 
+        session?.user ? (session.user.user_metadata.full_name || 'Logged in') : 'Not logged in';
+      loadGallery();  // Refresh gallery on login
+    });
+
+    // Login button function
+    async function signInWithGoogle() {
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          scopes: 'https://www.googleapis.com/auth/drive.appdata',
+          redirectTo: window.location.origin
+        }
+      });
+      if (error) console.error('Login error:', error);
+    }
+
+    // Logout
+    async function signOut() {
+      await sb.auth.signOut();
+    }
+
+    // Load gallery (will show empty/error until Supabase table exists)
+    async function loadGallery() {
+      const { data, error } = await sb
+        .from('community_gallery')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      const galleryEl = document.getElementById('gallery-list');
+      if (error) {
+        galleryEl.innerHTML = '<p style="color: red;">Gallery error (expected until Supabase setup):</p><pre>' + error.message + '</pre>';
+        return;
+      }
+      galleryEl.innerHTML = (data || []).length 
+        ? data.map(horse => `
+          <div class="horse-card">
+            <h3>${horse.creator_name}'s horse</h3>
+            <pre>${JSON.stringify(horse.horse_dna)}</pre>
+            <button onclick="alert('Buy logic: ${horse.id}')">Buy for 100 Gold</button>
+          </div>
+        `).join('')
+        : '<p>No horses yet. Upload one after login!</p>';
+    }
+
+    // Load gallery on page load
+    loadGallery();
+  </script>
+</body>
+</html>
