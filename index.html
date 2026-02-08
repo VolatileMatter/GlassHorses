@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+<script src="auth.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GlassHorses - Horse Breeding Sim</title>
@@ -56,8 +59,14 @@
   </header>
 
   <nav>
-    <div id="g-gsi-button"></div>
-    <button id="logout-btn" style="display: none;">Logout</button>
+    <button id="authorize_button" style="display:none">Authorize Drive</button>
+<button id="signout_button" style="display:none">Sign Out</button>
+<button id="drive-test-btn" style="display:none">Create Player Save</button>
+<span id="user-name">Not logged in</span>
+<div id="drive-status"></div>
+<pre id="content"></pre>
+
+
     <span id="user-name">Not logged in</span>
   </nav>
 
