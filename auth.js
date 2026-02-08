@@ -1,5 +1,4 @@
 // === OFFICIAL GOOGLE DRIVE QUICKSTART - GlassHorses ===
-const CLIENT_ID = '515090161385-jnmj9bp7p9i6uegdr0lqo5opbte2ivee.apps.googleusercontent.com';
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.appdata';
 
@@ -7,12 +6,19 @@ let tokenClient;
 let gapiInited = false;
 let gisInited = false;
 
-/**
- * Callback after api.js is loaded.
- */
-function gapiLoaded() {
+// Explicitly attach to window so index.html can see them
+window.gapiLoaded = function() {
   gapi.load('client', initializeGapiClient);
-}
+};
+window.gisLoaded = function() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID, // This will now correctly use the one from config.js
+    scope: SCOPES,
+    callback: '', 
+  });
+  gisInited = true;
+  maybeEnableButtons();
+};
 
 /**
  * Callback after the API client is loaded. Loads the discovery doc.
