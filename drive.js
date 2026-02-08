@@ -1,4 +1,4 @@
-// === MINIMAL WORKING GOOGLE DRIVE TEST ===
+// === MINIMAL WORKING GOOGLE DRIVE TEST - WITH DRIVE API LOAD ===
 
 window.createPlayerSaveFolder = async function createPlayerSaveFolder() {
   const statusEl = document.getElementById('drive-status');
@@ -39,28 +39,26 @@ window.createPlayerSaveFolder = async function createPlayerSaveFolder() {
       });
     }
     
-    // 3. Load client WITHOUT problematic timeout parameters
-    statusEl.innerHTML += `<br>🔧 Loading Drive API...`;
+    // 3. Load client
+    statusEl.innerHTML += `<br>🔧 Loading Google Client...`;
     
     await new Promise((resolve, reject) => {
-      // SIMPLE gapi.load - NO timeout parameters
       gapi.load('client', () => {
         resolve();
       });
     });
     
-    // 4. Initialize client
-    await gapi.client.init({
-      apiKey: '',
-      discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
-    });
+    // 4. **CRITICAL: LOAD DRIVE API MODULE**
+    statusEl.innerHTML += `<br>📁 Loading Drive API module...`;
     
-    // 5. Manually load Drive API if not loaded
-    if (!gapi.client.drive) {
-      await gapi.client.load('https://www.googleapis.com/discovery/v1/apis/drive/v3/rest');
-    }
+    await gapi.client.load('drive', 'v3');
     
-    statusEl.innerHTML += `<br>✅ Drive API ready`;
+    statusEl.innerHTML += `<br>✅ Drive API module loaded`;
+    
+    // 5. Initialize client (minimal)
+    await gapi.client.init({});
+    
+    statusEl.innerHTML += `<br>✅ Client initialized`;
     
     // 6. Set OAuth token
     gapi.auth.setToken({
@@ -68,19 +66,21 @@ window.createPlayerSaveFolder = async function createPlayerSaveFolder() {
       token_type: 'Bearer'
     });
     
-    // 7. CREATE A TEST FILE (simple approach)
+    statusEl.innerHTML += `<br>✅ Token set`;
+    
+    // 7. CREATE A TEST FILE
     statusEl.innerHTML += `<br>📝 Creating test file...`;
     
     const response = await gapi.client.drive.files.create({
       resource: {
-        name: `glasshorses_${Date.now()}.txt`,
+        name: `glasshorses_test_${Date.now()}.txt`,
         parents: ['appDataFolder']
       },
       media: {
         mimeType: 'text/plain',
-        body: `Test from GlassHorses\n${new Date().toISOString()}\n${session.user.email}`
+        body: `Test from GlassHorses\nTime: ${new Date().toISOString()}\nUser: ${session.user.email}`
       },
-      fields: 'id,name'
+      fields: 'id,name,createdTime'
     });
     
     // SUCCESS!
@@ -90,8 +90,10 @@ window.createPlayerSaveFolder = async function createPlayerSaveFolder() {
         <br><br>
         ✅ File created: ${response.result.name}
         <br>✅ File ID: ${response.result.id}
+        <br>✅ Created: ${new Date(response.result.createdTime).toLocaleString()}
         <br><br>
         <strong>Drive integration is working!</strong>
+        <br><small>File saved to Google Drive app-specific storage.</small>
       </div>
     `;
     
@@ -103,6 +105,11 @@ window.createPlayerSaveFolder = async function createPlayerSaveFolder() {
     let message = error.message;
     if (error.result?.error?.message) {
       message = error.result.error.message;
+    }
+    
+    // Check if it's the Drive API loading error
+    if (message.includes('drive') && message.includes('not found')) {
+      message = 'Drive API module failed to load. ' + message;
     }
     
     statusEl.innerHTML = `
@@ -119,4 +126,4 @@ window.createPlayerSaveFolder = async function createPlayerSaveFolder() {
   }
 };
 
-console.log('✅ Minimal drive.js loaded');
+console.log('✅ Fixed drive.js loaded (with Drive API load)');
