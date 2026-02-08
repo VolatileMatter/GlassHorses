@@ -1,82 +1,85 @@
-// === PURE GOOGLE AUTH - NO SUPABASE LOGIN ===
-
-// CONFIG - Replace with your actual Google Client ID from console.cloud.google.com
+// === GOOGLE SIGN-IN v2 (GSI) - NO DEPRECATED LIBRARIES ===
 const GOOGLE_CLIENT_ID = '515090161385-jnmj9bp7p9i6uegdr0lqo5opbte2ivee.apps.googleusercontent.com';
 
-let authInstance = null;
+let googleUser = null;
 
-// === INIT GOOGLE AUTH ===
-async function initGoogleAuth() {
-  if (authInstance) return authInstance;
+// === INIT GSI ===
+function initGoogleSignIn() {
+  // Load GSI script
+  if (document.getElementById('gisi')) return;
   
-  // Load platform.js first
-  await new Promise((resolve) => {
-    if (window.gapi?.auth2) return resolve();
+  const script = document.createElement('script');
+  script.id = 'gisi';
+  script.src = 'https://accounts.google.com/gsi/client';
+  script.async = true;
+  script.onload = initGSIClient;
+  document.head.appendChild(script);
+}
+
+// === GSI CLIENT SETUP ===
+function initGSIClient() {
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: 'email profile https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.appdata',
+    callback: handleGoogleSignIn,
+    auto_select: false,
+    cancel_on_tap_outside: false
+  });
+  
+  // Render button
+  google.accounts.id.renderButton(
+    document.getElementById('login-btn'),
+    { theme: 'outline', size: 'large', text: 'signin_with' }
+  );
+  
+  // Check existing session
+  google.accounts.id.getLastError();
+  restoreSession();
+}
+
+// === SIGN IN CALLBACK ===
+function handleGoogleSignIn(response) {
+  try {
+    // Decode JWT token
+    const payload = JSON.parse(atob(response.credential.split('.')[1]));
+    
+    googleUser = {
+      email: payload.email,
+      name: payload.name,
+      picture: payload.picture,
+      token: payload.at_hash || payload.jti // Use access token from credential
+    };
+    
+    // Get Drive token separately for API calls
+    initDriveToken();
+    
+    updateAuthUI(googleUser);
+    loadGallery();
+    console.log('✅ GSI login:', googleUser.email);
+    
+  } catch (error) {
+    console.error('GSI decode failed:', error);
+  }
+}
+
+// === DRIVE TOKEN (SEPARATE) ===
+async function initDriveToken() {
+  if (window.GlassHorsesDrive?.driveToken) return;
+  
+  // Load API client for Drive token
+  await new Promise(resolve => {
+    if (window.gapi?.client) return resolve();
     const script = document.createElement('script');
-    script.src = 'https://apis.google.com/js/platform.js';
-    script.async = true;
-    script.onload = () => gapi.load('auth2', resolve);
+    script.src = 'https://apis.google.com/js/api.js';
+    script.onload = () => gapi.load('client', resolve);
     document.head.appendChild(script);
   });
   
-  // Initialize with Drive scopes
-  authInstance = await new Promise((resolve) => {
-    gapi.auth2.init({
-      client_id: GOOGLE_CLIENT_ID,
-      scope: 'profile email https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.appdata'
-    }).then(resolve);
-  });
-  
-  return authInstance;
-}
-
-// === CHECK AUTH STATE ===
-async function getCurrentUser() {
-  const auth = await initGoogleAuth();
-  const user = auth.isSignedIn.get() ? auth.currentUser.get() : null;
-  
-  if (user) {
-    const profile = user.getBasicProfile();
-    return {
-      email: profile.getEmail(),
-      name: profile.getName(),
-      picture: profile.getImageUrl(),
-      token: user.getAuthResponse().access_token
-    };
-  }
-  return null;
-}
-
-// === LOGIN ===
-async function signInWithGoogle() {
-  const loginBtn = document.getElementById('login-btn');
-  const originalText = loginBtn.textContent;
-  
-  try {
-    loginBtn.textContent = '🔄 Signing in...';
-    loginBtn.disabled = true;
-    
-    const auth = await initGoogleAuth();
-    await auth.signIn();
-    
-    const user = await getCurrentUser();
-    updateAuthUI(user);
-    
-    // Initialize Drive with this token
-    if (window.GlassHorsesDrive) {
-      window.GlassHorsesDrive.driveToken = user.token;
-    }
-    
-    loadGallery();
-    console.log('✅ Google login success:', user.email);
-    
-  } catch (error) {
-    console.error('Login failed:', error);
-    alert('Google login failed: ' + error.error);
-  } finally {
-    loginBtn.textContent = originalText;
-    loginBtn.disabled = false;
-  }
+  // Use GSI token for Drive (works with drive.file/appdata scopes)
+  window.GlassHorsesDrive = {
+    driveToken: googleUser.token,
+    initialized: true
+  };
 }
 
 // === LOGOUT ===
@@ -86,23 +89,20 @@ async function signOut() {
   
   try {
     logoutBtn.textContent = '🔄 Signing out...';
-    logoutBtn.disabled = true;
     
-    const auth = await initGoogleAuth();
-    await auth.signOut();
+    google.accounts.id.disableAutoSelect();
+    google.accounts.id.clearCachedToken();
+    
+    googleUser = null;
+    window.GlassHorsesDrive = null;
     
     updateAuthUI(null);
-    window.GlassHorsesDrive = null;
     
     const statusEl = document.getElementById('drive-status');
     if (statusEl) statusEl.innerHTML = '';
     
-    console.log('✅ Signed out');
-  } catch (error) {
-    console.error('Logout failed:', error);
   } finally {
     logoutBtn.textContent = originalText;
-    logoutBtn.disabled = false;
   }
 }
 
@@ -113,35 +113,27 @@ function updateAuthUI(user) {
   const logoutBtn = document.getElementById('logout-btn');
   
   if (user) {
-    userNameEl.textContent = user.name || user.email || 'Logged in';
+    userNameEl.textContent = user.name || user.email;
     loginBtn.style.display = 'none';
     logoutBtn.style.display = 'inline-block';
   } else {
     userNameEl.textContent = 'Not logged in';
-    loginBtn.style.display = 'inline-block';
+    loginBtn.style.display = 'block';
     logoutBtn.style.display = 'none';
   }
 }
 
-// === AUTO-RESTORE SESSION ===
-async function restoreSession() {
-  const user = await getCurrentUser();
-  if (user) {
-    updateAuthUI(user);
-    window.GlassHorsesDrive = { driveToken: user.token };
-    loadGallery();
-  }
+// === RESTORE SESSION ===
+function restoreSession() {
+  // GSI doesn't persist tokens across sessions - always require login
+  updateAuthUI(null);
 }
 
-// === EVENT LISTENERS ===
-document.addEventListener('DOMContentLoaded', async () => {
-  console.log('🔧 Setting up Google auth...');
+// === INIT ON LOAD ===
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('🔧 Initializing Google Sign-In v2...');
   
-  // Login button
-  const loginBtn = document.getElementById('login-btn');
-  if (loginBtn) loginBtn.addEventListener('click', signInWithGoogle);
-  
-  // Logout button  
+  // Logout button
   const logoutBtn = document.getElementById('logout-btn');
   if (logoutBtn) logoutBtn.addEventListener('click', signOut);
   
@@ -149,25 +141,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const driveTestBtn = document.getElementById('drive-test-btn');
   if (driveTestBtn) {
     driveTestBtn.addEventListener('click', () => {
-      if (window.createPlayerSaveFolder) {
-        window.createPlayerSaveFolder();
-      } else {
-        alert('Drive module not loaded');
-      }
+      if (window.createPlayerSaveFolder) window.createPlayerSaveFolder();
     });
   }
   
-  // Restore session
-  await restoreSession();
+  // Init GSI
+  initGoogleSignIn();
 });
 
-// Sign-in status listener
-if (window.gapi?.auth2) {
-  gapi.auth2.getAuthInstance().isSignedIn.listen((signedIn) => {
-    if (signedIn) restoreSession();
-  });
-}
-
-// === EXPOSE GLOBALS ===
-window.signInWithGoogle = signInWithGoogle;
+window.signInWithGoogle = () => google.accounts.id.prompt(); // Trigger login
 window.signOut = signOut;
