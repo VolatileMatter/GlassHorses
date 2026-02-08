@@ -1,84 +1,74 @@
-// === MINIMAL WORKING GOOGLE DRIVE TEST - WITH DRIVE API LOAD ===
+// === MINIMAL WORKING GOOGLE DRIVE TEST - HYBRID AUTH ===
 
 window.createPlayerSaveFolder = async function createPlayerSaveFolder() {
   const statusEl = document.getElementById('drive-status');
   if (!statusEl) return;
   
-  statusEl.innerHTML = `
-    <div class="drive-status">
-      🚀 Testing Google Drive...
-    </div>
-  `;
+  statusEl.innerHTML = '<div class="drive-status">🚀 Testing Google Drive...</div>';
   
   try {
-    // 1. Get session
+    // 1. Check Supabase session (UI state)
     const { data: { session } } = await sb.auth.getSession();
-    
-    if (!session?.provider_token) {
-      throw new Error('Please login with Google first');
-    }
+    if (!session?.user) throw new Error('Please login first');
     
     statusEl.innerHTML += `<br>✅ User: ${session.user.email}`;
     
-    // 2. Load Google API with SIMPLE method
-    statusEl.innerHTML += `<br>📦 Loading Google API...`;
+    // 2. Get Drive token from hybrid auth
+    if (!window.GlassHorsesDrive?.driveToken) {
+      throw new Error('Drive auth not initialized. Refresh page.');
+    }
     
-    if (!window.gapi) {
+    statusEl.innerHTML += `<br>✅ Drive token ready`;
+    
+    // 3. Load Google API client
+    if (!window.gapi?.client) {
+      statusEl.innerHTML += `<br>📦 Loading Google API...`;
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = 'https://apis.google.com/js/api.js';
         script.async = true;
-        
         script.onload = () => {
-          console.log('✅ Google API loaded');
-          resolve();
+          gapi.load('client', resolve);
         };
-        
         script.onerror = reject;
         document.head.appendChild(script);
       });
     }
     
-    // 3. Load client
-    statusEl.innerHTML += `<br>🔧 Loading Google Client...`;
-    
-    await new Promise((resolve, reject) => {
-      gapi.load('client', () => {
-        resolve();
-      });
-    });
-    
-    // 4. **CRITICAL: LOAD DRIVE API MODULE**
-    statusEl.innerHTML += `<br>📁 Loading Drive API module...`;
-    
-    await gapi.client.load('drive', 'v3');
-    
-    statusEl.innerHTML += `<br>✅ Drive API module loaded`;
-    
-    // 5. Initialize client (minimal)
-    await gapi.client.init({});
-    
-    statusEl.innerHTML += `<br>✅ Client initialized`;
-    
-    // 6. Set OAuth token
-    gapi.auth.setToken({
-      access_token: session.provider_token,
+    // 4. Init client with Drive token
+    statusEl.innerHTML += `<br>🔧 Initializing client...`;
+    gapi.auth.setToken({ 
+      access_token: window.GlassHorsesDrive.driveToken,
       token_type: 'Bearer'
     });
     
-    statusEl.innerHTML += `<br>✅ Token set`;
+    await gapi.client.init({
+      apiKey: 'AIzaSy...', // Optional public API key
+      discoveryDocs: ['https://www.googleapis.com/discovery/v3/apis/drive/v3/rest']
+    });
     
-    // 7. CREATE A TEST FILE
+    // 5. Load Drive API
+    statusEl.innerHTML += `<br>📁 Loading Drive API...`;
+    await new Promise((resolve) => gapi.client.load('drive', 'v3', resolve));
+    
+    statusEl.innerHTML += `<br>✅ Drive API ready`;
+    
+    // 6. CREATE TEST FILE IN ROOT (works with drive.file)
     statusEl.innerHTML += `<br>📝 Creating test file...`;
     
+    const fileMetadata = {
+      name: `glasshorses_test_${Date.now()}.txt`,
+      // ✅ FIXED: Root folder - works with drive.file scope
+      parents: []  
+    };
+    
+    const mediaData = `Test from GlassHorses\nTime: ${new Date().toISOString()}\nUser: ${session.user.email}`;
+    
     const response = await gapi.client.drive.files.create({
-      resource: {
-        name: `glasshorses_test_${Date.now()}.txt`,
-        parents: ['appDataFolder']
-      },
+      resource: fileMetadata,
       media: {
         mimeType: 'text/plain',
-        body: `Test from GlassHorses\nTime: ${new Date().toISOString()}\nUser: ${session.user.email}`
+        body: mediaData
       },
       fields: 'id,name,createdTime'
     });
@@ -88,42 +78,27 @@ window.createPlayerSaveFolder = async function createPlayerSaveFolder() {
       <div class="drive-success">
         🎉 GOOGLE DRIVE WORKS!
         <br><br>
-        ✅ File created: ${response.result.name}
-        <br>✅ File ID: ${response.result.id}
+        ✅ File: ${response.result.name}
+        <br>✅ ID: ${response.result.id}
         <br>✅ Created: ${new Date(response.result.createdTime).toLocaleString()}
         <br><br>
-        <strong>Drive integration is working!</strong>
-        <br><small>File saved to Google Drive app-specific storage.</small>
+        <strong>Drive integration ready!</strong>
       </div>
     `;
     
-    console.log('✅ Success:', response.result);
-    
   } catch (error) {
-    console.error('❌ Error:', error);
-    
-    let message = error.message;
-    if (error.result?.error?.message) {
-      message = error.result.error.message;
-    }
-    
-    // Check if it's the Drive API loading error
-    if (message.includes('drive') && message.includes('not found')) {
-      message = 'Drive API module failed to load. ' + message;
-    }
+    console.error('❌ Drive Error:', error);
+    const message = error.result?.error?.message || error.message;
     
     statusEl.innerHTML = `
       <div class="drive-error">
         ❌ ${message}
         <br><br>
         <button onclick="location.reload()">🔄 Refresh</button>
-        <button onclick="signOut(); setTimeout(() => location.reload(), 1000)" 
-                style="margin-left: 10px;">
-          🔄 Logout & Retry
-        </button>
+        <button onclick="signOut();setTimeout(()=>location.reload(),1000)">🔄 Logout & Retry</button>
       </div>
     `;
   }
 };
 
-console.log('✅ Fixed drive.js loaded (with Drive API load)');
+console.log('✅ Hybrid drive.js loaded');

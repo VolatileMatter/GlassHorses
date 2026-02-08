@@ -1,4 +1,7 @@
-// === AUTHENTICATION MODULE ===
+// === AUTHENTICATION MODULE (HYBRID SUPABASE + GAPI DRIVE) ===
+
+// CONFIG - Replace with your actual Google Client ID
+const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.googleusercontent.com'; // From Google Console
 
 // === SESSION RESTORATION ===
 async function restoreSessionAndPreload() {
@@ -9,38 +12,68 @@ async function restoreSessionAndPreload() {
     console.log('✅ Session restored:', session.user.email);
     updateAuthUI(session);
     
-    // Start Drive preload after a short delay
-    setTimeout(() => {
-      if (window.preloadGoogleDrive) {
-        window.preloadGoogleDrive();
-      }
-    }, 500);
+    // Initialize hybrid Drive auth
+    await initGoogleDriveAuth();
     
     return true;
   }
-  
   return false;
 }
 
+// === GOOGLE DRIVE AUTH (PARALLEL TO SUPABASE) ===
+async function initGoogleDriveAuth() {
+  if (window.GlassHorsesDrive?.driveInitialized) return;
+  
+  try {
+    console.log('🔧 Initializing Google Drive auth...');
+    
+    // Load gapi auth2
+    await new Promise((resolve) => {
+      if (window.gapi?.auth2) return resolve();
+      const script = document.createElement('script');
+      script.src = 'https://apis.google.com/js/platform.js';
+      script.async = true;
+      script.onload = () => {
+        gapi.load('auth2', resolve);
+      };
+      document.head.appendChild(script);
+    });
+    
+    // Init with Drive scopes
+    await gapi.auth2.init({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: 'profile email https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.appdata'
+    });
+    
+    // Auto-signin if user already has Google session
+    const authInstance = gapi.auth2.getAuthInstance();
+    if (!authInstance.isSignedIn.get()) {
+      await authInstance.signIn({ prompt: 'none' });
+    }
+    
+    window.GlassHorsesDrive = window.GlassHorsesDrive || {};
+    window.GlassHorsesDrive.driveToken = authInstance.currentUser.get().getAuthResponse().access_token;
+    window.GlassHorsesDrive.driveInitialized = true;
+    
+    console.log('✅ Google Drive auth ready');
+  } catch (error) {
+    console.warn('Drive auth failed (non-critical):', error);
+  }
+}
+
 // === AUTH STATE LISTENER ===
-sb.auth.onAuthStateChange((event, session) => {
+sb.auth.onAuthStateChange(async (event, session) => {
   console.log('🔐 Auth state changed:', event, session?.user?.email);
   updateAuthUI(session);
   
   if (session?.user) {
-    // Preload Drive on login
-    setTimeout(() => {
-      if (window.preloadGoogleDrive) {
-        window.preloadGoogleDrive();
-      }
-    }, 1000);
+    await initGoogleDriveAuth();
   } else {
-    // Clear Drive cache on logout
+    // Clear Drive on logout
     if (window.GlassHorsesDrive) {
-      window.GlassHorsesDrive.initializationPromise = null;
+      window.GlassHorsesDrive.driveInitialized = false;
+      window.GlassHorsesDrive.driveToken = null;
     }
-    localStorage.removeItem('drive_last_init');
-    localStorage.removeItem('drive_folder_id');
   }
 });
 
@@ -59,13 +92,10 @@ function updateAuthUI(session) {
     userNameEl.textContent = 'Not logged in';
     loginBtn.style.display = 'inline-block';
     logoutBtn.style.display = 'none';
-    
-    const statusEl = document.getElementById('drive-status');
-    if (statusEl) statusEl.innerHTML = '';
   }
 }
 
-// === GOOGLE LOGIN ===
+// === SUPABASE GOOGLE LOGIN (KEEPS EXISTING FLOW) ===
 async function signInWithGoogle() {
   const loginBtn = document.getElementById('login-btn');
   const originalText = loginBtn.textContent;
@@ -74,15 +104,11 @@ async function signInWithGoogle() {
     loginBtn.textContent = '🔄 Connecting...';
     loginBtn.disabled = true;
     
+    // Supabase login (no Drive scopes here - handled by gapi)
     const { error } = await sb.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        scopes: 'https://www.googleapis.com/auth/drive.appdata',
-        redirectTo: window.location.origin,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent'
-        }
+        redirectTo: window.location.origin
       }
     });
     
@@ -105,21 +131,21 @@ async function signOut() {
     logoutBtn.textContent = '🔄 Logging out...';
     logoutBtn.disabled = true;
     
+    // Sign out from BOTH systems
     await sb.auth.signOut();
+    if (gapi?.auth2?.getAuthInstance()?.signOut) {
+      await gapi.auth2.getAuthInstance().signOut();
+    }
     
     // Clear Drive state
     if (window.GlassHorsesDrive) {
-      window.GlassHorsesDrive.initializationPromise = null;
+      window.GlassHorsesDrive = { initializationPromise: null };
     }
-    localStorage.removeItem('drive_last_init');
-    localStorage.removeItem('drive_folder_id');
     
     document.getElementById('drive-status').innerHTML = '';
     console.log('✅ Logged out');
-    
   } catch (error) {
     console.error('Logout error:', error);
-    alert('Logout failed: ' + error.message);
   } finally {
     logoutBtn.textContent = originalText;
     logoutBtn.disabled = false;
@@ -130,46 +156,25 @@ async function signOut() {
 document.addEventListener('DOMContentLoaded', () => {
   console.log('🔧 Setting up auth event listeners...');
   
-  // Login button
   const loginBtn = document.getElementById('login-btn');
-  if (loginBtn) {
-    loginBtn.addEventListener('click', signInWithGoogle);
-  }
+  if (loginBtn) loginBtn.addEventListener('click', signInWithGoogle);
   
-  // Logout button
   const logoutBtn = document.getElementById('logout-btn');
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', signOut);
-  }
+  if (logoutBtn) logoutBtn.addEventListener('click', signOut);
   
-  // Drive test button
   const driveTestBtn = document.getElementById('drive-test-btn');
   if (driveTestBtn) {
     driveTestBtn.addEventListener('click', () => {
       if (typeof window.createPlayerSaveFolder === 'function') {
         window.createPlayerSaveFolder();
       } else {
-        alert('Google Drive module not loaded. Please refresh the page.');
+        alert('Drive module not loaded');
       }
     });
   }
   
-  // Breed button
-  const breedBtn = document.getElementById('breed-btn');
-  if (breedBtn) {
-    breedBtn.addEventListener('click', () => {
-      alert('Horse breeding coming soon!');
-    });
-  }
-  
-  // Check for existing session
-  setTimeout(() => {
-    restoreSessionAndPreload();
-  }, 100);
+  setTimeout(() => restoreSessionAndPreload(), 100);
 });
 
-// === EXPORT FUNCTIONS ===
-if (typeof window !== 'undefined') {
-  window.signInWithGoogle = signInWithGoogle;
-  window.signOut = signOut;
-}
+window.signInWithGoogle = signInWithGoogle;
+window.signOut = signOut;
