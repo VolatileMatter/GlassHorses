@@ -5,6 +5,49 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GlassHorses - Horse Breeding Sim</title>
   <link rel="stylesheet" href="styles.css">
+  <script>
+    // Track script loading state
+    window.appLoaded = false;
+    window.scriptsLoaded = {
+      config: false,
+      auth: false,
+      drive: false,
+      gallery: false,
+      app: false
+    };
+    
+    function checkAllScriptsLoaded() {
+      const allLoaded = Object.values(window.scriptsLoaded).every(loaded => loaded);
+      if (allLoaded) {
+        window.appLoaded = true;
+        console.log('✅ All scripts loaded successfully');
+        
+        // Dispatch custom event when all scripts are loaded
+        document.dispatchEvent(new CustomEvent('allScriptsLoaded'));
+      }
+    }
+    
+    // Error handler for script loading
+    function handleScriptError(scriptName) {
+      console.error(`❌ Failed to load script: ${scriptName}`);
+      window.scriptsLoaded[scriptName] = true; // Mark as loaded to prevent hangs
+      checkAllScriptsLoaded();
+      
+      // Show error to user
+      setTimeout(() => {
+        const galleryEl = document.getElementById('gallery-list');
+        if (galleryEl && !window.appLoaded) {
+          galleryEl.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #e74c3c;">
+              <h3>Script Loading Error</h3>
+              <p>Failed to load ${scriptName}.js. Please refresh the page.</p>
+              <button onclick="window.location.reload()">🔄 Refresh Page</button>
+            </div>
+          `;
+        }
+      }, 1000);
+    }
+  </script>
 </head>
 <body>
   <header>
@@ -23,8 +66,9 @@
       <h2>🏇 Single Player Stable</h2>
       <p>Your personal horse breeding game (local + Google Drive saves).</p>
       <button id="drive-test-btn">🗄️ Test Drive Save (Create Folder + test.md)</button>
-      <button onclick="alert('Horse breeding logic coming next!')">🐴 Breed Horses</button>
+      <button id="breed-btn">🐴 Breed Horses</button>
       <div id="drive-status"></div>
+      <div id="drive-debug" style="display: none; margin-top: 10px; font-size: 0.8em; color: #7f8c8d;"></div>
     </section>
 
     <section id="community-gallery" class="section">
@@ -35,13 +79,33 @@
 
   <!-- Supabase CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- Google API is now loaded dynamically in drive.js, removed from here -->
   
-  <!-- Application Scripts - CRITICAL ORDER -->
-  <script src="config.js"></script>
-  <script src="auth.js"></script>
-  <script src="drive.js"></script> <!-- Load BEFORE gallery.js -->
-  <script src="gallery.js"></script>
-  <script src="app.js"></script>
+  <!-- Application Scripts - CRITICAL ORDER with error handling -->
+  <script src="config.js" onload="window.scriptsLoaded.config = true; checkAllScriptsLoaded();" 
+          onerror="handleScriptError('config')"></script>
+  <script src="auth.js" onload="window.scriptsLoaded.auth = true; checkAllScriptsLoaded();" 
+          onerror="handleScriptError('auth')"></script>
+  <script src="drive.js" onload="window.scriptsLoaded.drive = true; checkAllScriptsLoaded();" 
+          onerror="handleScriptError('drive')"></script>
+  <script src="gallery.js" onload="window.scriptsLoaded.gallery = true; checkAllScriptsLoaded();" 
+          onerror="handleScriptError('gallery')"></script>
+  <script src="app.js" onload="window.scriptsLoaded.app = true; checkAllScriptsLoaded();" 
+          onerror="handleScriptError('app')"></script>
+  
+  <!-- Debug button (remove in production) -->
+  <div style="position: fixed; bottom: 10px; right: 10px; z-index: 1000;">
+    <button onclick="
+      const debug = document.getElementById('drive-debug');
+      debug.style.display = debug.style.display === 'none' ? 'block' : 'none';
+      debug.innerHTML = `
+        <strong>Drive Status:</strong><br>
+        App Loaded: ${window.appLoaded}<br>
+        createPlayerSaveFolder: ${typeof window.createPlayerSaveFolder}<br>
+        gapi: ${typeof window.gapi}<br>
+        gapiInited: ${window.gapiInited}<br>
+        Scripts: ${JSON.stringify(window.scriptsLoaded)}
+      `;
+    " style="font-size: 0.7em; padding: 5px;">🐛 Debug</button>
+  </div>
 </body>
 </html>

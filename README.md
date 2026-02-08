@@ -1,10 +1,24 @@
 # GlassHorses - Horse Breeding Simulation
 
-A fantasy horse breeding simulator with Google Drive integration for cloud saves and a community gallery for sharing horse creations.
+A fantasy horse breeding simulator with Google Drive integration for cloud saves and a community gallery for sharing horse creations. Hosted on Vercel for seamless deployment and scalability.
 
 ## Project Overview
 
-GlassHorses is a web-based horse breeding game that combines single-player breeding mechanics with community features. Players can breed unique horses, save their progress to Google Drive, and share their creations in a public gallery.
+GlassHorses is a web-based horse breeding game that combines single-player breeding mechanics with community features. Players can breed unique horses, save their progress to Google Drive, and share their creations in a public gallery. The application is deployed on Vercel for automatic deployments and global CDN distribution.
+
+## Hosting Information
+
+### Vercel Deployment
+- **Platform**: Vercel (Serverless deployment)
+- **URL**: https://glasshorses-vercel.vercel.app
+- **Deployment**: Automatic from GitHub repository
+- **Features**: Global CDN, automatic SSL, serverless functions ready
+
+### Deployment Configuration
+- **Framework**: Static HTML/JS (no build step required)
+- **Root Directory**: Project root
+- **Build Command**: None (static files)
+- **Output Directory**: Not applicable (static deployment)
 
 ## Current Feature Set
 
@@ -47,6 +61,13 @@ glasshorses/
 - **Supabase JS v2**: Database and authentication
 - **Google APIs**: Drive integration with OAuth
 - **Vanilla JavaScript**: No build tools required
+- **Vercel**: Hosting and deployment platform
+
+### Vercel-Specific Configuration
+- No `vercel.json` required (automatic static detection)
+- CORS headers automatically configured for APIs
+- Environment variables managed in Vercel dashboard
+- Automatic HTTPS/SSL provisioning
 
 ## How It Works
 
@@ -72,6 +93,12 @@ glasshorses/
 
 ## Performance Optimizations
 
+### Vercel Hosting Benefits
+- **Global CDN**: Files served from edge locations worldwide
+- **Automatic Compression**: Assets optimized for fast delivery
+- **HTTP/2 Support**: Improved loading performance
+- **Cache Headers**: Static files cached appropriately
+
 ### Drive Loading Optimization
 - **Cached Initialization**: First load takes 2-3 seconds, subsequent loads <300ms
 - **Background Pre-loading**: Automatically loads Drive API after login
@@ -90,6 +117,12 @@ glasshorses/
 
 ## Security Implementation
 
+### Vercel Security Features
+- **Automatic HTTPS**: All traffic encrypted
+- **DDoS Protection**: Built-in mitigation
+- **Security Headers**: Automatic security headers
+- **Isolated Deployments**: Each deployment isolated
+
 ### Data Protection
 - Row Level Security (RLS) in Supabase protects user data
 - Google Drive appDataFolder keeps saves hidden from users
@@ -103,22 +136,56 @@ glasshorses/
 
 ## Setup Instructions
 
+### Local Development
+1. Clone the repository
+2. Open `index.html` in a modern browser
+3. Update API keys in `config.js` for local testing
+4. No build process required
+
+### Vercel Deployment
+1. Push code to GitHub repository
+2. Connect repository to Vercel
+3. Configure environment variables in Vercel dashboard:
+   - `SUPABASE_URL` (if using serverless functions)
+   - `SUPABASE_ANON_KEY` (if using serverless functions)
+4. Deploy automatically or manually
+
 ### Prerequisites
 1. Google Cloud Project with Drive API enabled
 2. Supabase project with authentication configured
 3. OAuth consent screen configured for Google Cloud
+4. Vercel account (free tier available)
 
 ### Configuration Steps
 1. Replace `supabaseKey` in `config.js` with your project's anon key
 2. Update `CLIENT_ID` with your Google Cloud OAuth client ID
 3. Enable Row Level Security on all Supabase tables
 4. Configure Google OAuth in Supabase authentication settings
+5. Add domain to Google OAuth authorized redirect URIs (Vercel URL)
 
 ### Testing
-1. Open index.html in a modern browser
+1. Open deployed Vercel URL in a modern browser
 2. Click "Login with Google" and grant Drive permissions
 3. Test Drive integration with the "Test Drive Save" button
 4. Verify gallery loads with sample data
+
+## Vercel-Specific Considerations
+
+### CORS Configuration
+- Google Drive API requires proper CORS configuration
+- Supabase requests need appropriate CORS headers
+- Vercel automatically handles basic CORS for static files
+
+### Environment Variables
+For enhanced security in production:
+1. Store sensitive keys in Vercel environment variables
+2. Update `config.js` to read from `process.env` if using build step
+3. Consider using Vercel serverless functions as API proxy
+
+### Custom Domains
+1. Add custom domain in Vercel dashboard
+2. Update Google OAuth authorized redirect URIs
+3. Update Supabase redirect URLs if configured
 
 ## Current Limitations
 
@@ -127,13 +194,21 @@ glasshorses/
 - Session restoration may fail if tokens are severely expired
 - Gallery functionality depends on Supabase table structure
 - No actual horse breeding mechanics implemented yet
+- Static deployment means API keys are exposed in client-side code
 
 ### Browser Support
 - Modern browsers with ES6 support
 - Requires localStorage and Promise support
 - Google Drive API requires secure contexts (HTTPS)
+- Vercel provides automatic HTTPS
 
 ## Next Development Phase
+
+### Vercel-Specific Improvements
+1. Implement serverless functions for sensitive operations
+2. Add API routes for secure key management
+3. Implement edge caching for gallery data
+4. Add analytics with Vercel Analytics
 
 ### Planned Features
 1. Horse DNA generation and breeding algorithms
@@ -156,16 +231,25 @@ glasshorses/
 - Check console for authentication errors
 - Verify Google Cloud OAuth consent screen is configured
 - Ensure Drive API is enabled in Google Cloud Console
+- Check Vercel deployment URL is in authorized domains
 
 **Session not persisting:**
 - Check browser localStorage is not blocked
 - Verify Supabase auth configuration
 - Clear browser cache and retry
+- Check domain matches between local and deployed versions
 
 **Gallery not loading:**
 - Check Supabase table structure matches expectations
 - Verify RLS policies allow public read access
 - Check network console for API errors
+- Verify Supabase project is accessible from Vercel domain
+
+**Vercel deployment issues:**
+- Check Vercel deployment logs
+- Verify all files are included in deployment
+- Check environment variables if using serverless functions
+- Verify custom domain DNS settings if applicable
 
 ### Debug Mode
 Open browser console (F12) to see detailed logs:
@@ -173,6 +257,7 @@ Open browser console (F12) to see detailed logs:
 - Authentication events
 - Drive API loading progress
 - Error details for troubleshooting
+- Network requests to verify API connectivity
 
 ## License
 
@@ -180,10 +265,9 @@ This project is licensed under the Creative Commons Attribution-NonCommercial 4.
 
 ## Acknowledgments
 
-- Supabase for backend infrastructure
-- Google Drive API for cloud storage
+- **Vercel** for hosting and deployment platform
+- **Supabase** for backend infrastructure
+- **Google Drive API** for cloud storage
 - Community gallery concept inspired by breeding simulation games
 
----
-
-*Note: This is a work in progress. Features and architecture may change as development continues.*
+*Note: This is a work in progress. Features and architecture may change as development continues. The current deployment exposes API keys client-side; for production use, consider implementing serverless functions or environment variable management.*

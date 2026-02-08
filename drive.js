@@ -127,7 +127,7 @@ async function preloadGoogleDrive() {
 }
 
 // === MAIN CREATE FOLDER FUNCTION ===
-window.createPlayerSaveFolder = async function createPlayerSaveFolder() {
+const createPlayerSaveFolder = async function() {
   const statusEl = document.getElementById('drive-status');
   if (!statusEl) {
     console.error('Drive status element not found');
@@ -295,11 +295,25 @@ async function checkExistingDriveFolder() {
   }
 }
 
-// === EXPORT FUNCTIONS ===
+// === CRITICAL: EXPORT ALL FUNCTIONS TO GLOBAL SCOPE ===
+// This ensures functions are available when called from HTML
 if (typeof window !== 'undefined') {
+  // Main function
+  window.createPlayerSaveFolder = createPlayerSaveFolder;
+  
+  // Helper functions
   window.preloadGoogleDrive = preloadGoogleDrive;
   window.checkExistingDriveFolder = checkExistingDriveFolder;
   window.ensureDriveInitialized = ensureDriveInitialized;
+  
+  // Debug functions
+  window.getDriveStatus = () => ({
+    gapiLoaded: !!window.gapi,
+    gapiInited,
+    driveInitializationPromise: !!driveInitializationPromise,
+    lastInit: localStorage.getItem('drive_last_init')
+  });
 }
 
 console.log('✅ Drive module loaded with caching and preload support');
+console.log('✅ createPlayerSaveFolder exported to window:', typeof window.createPlayerSaveFolder);

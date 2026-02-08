@@ -11,37 +11,33 @@ async function restoreSessionAndPreload() {
     // Update UI immediately
     updateAuthUI(session);
     
+    // Verify Drive function is available
+    if (typeof window.createPlayerSaveFolder !== 'function') {
+      console.warn('⚠️ createPlayerSaveFolder not available yet, will retry');
+      // Retry in 1 second
+      setTimeout(() => {
+        if (typeof window.createPlayerSaveFolder === 'function') {
+          console.log('✅ createPlayerSaveFolder now available');
+        } else {
+          console.error('❌ createPlayerSaveFolder still not available after retry');
+        }
+      }, 1000);
+    }
+    
     // Wait a moment for page to settle, then preload Drive
     setTimeout(() => {
-      if (window.preloadGoogleDrive) {
+      if (window.preloadGoogleDrive && typeof window.preloadGoogleDrive === 'function') {
         window.preloadGoogleDrive().then(success => {
           if (success) {
             console.log('✅ Drive preload initiated');
-            
-            // Check for existing folder after preload
-            setTimeout(() => {
-              if (window.checkExistingDriveFolder) {
-                window.checkExistingDriveFolder().then(folder => {
-                  if (folder) {
-                    console.log('📁 Found existing Drive folder:', folder.name);
-                    // Optional: Update UI to show folder exists
-                    const statusEl = document.getElementById('drive-status');
-                    if (statusEl && statusEl.innerHTML === '') {
-                      statusEl.innerHTML = `
-                        <div class="drive-success" style="font-size: 0.9em; padding: 10px;">
-                          ✅ Found existing save folder: ${folder.name}
-                          <br><small>Click the button above to create a new one or manage files</small>
-                        </div>
-                      `;
-                    }
-                  }
-                });
-              }
-            }, 1000);
           }
+        }).catch(error => {
+          console.warn('⚠️ Preload failed:', error.message);
         });
+      } else {
+        console.warn('⚠️ preloadGoogleDrive function not available');
       }
-    }, 500);
+    }, 1000);
     
     return true;
   }
@@ -58,17 +54,18 @@ sb.auth.onAuthStateChange((event, session) => {
   if (session?.user) {
     // Preload Drive when user logs in
     setTimeout(() => {
-      if (window.preloadGoogleDrive) {
+      if (window.preloadGoogleDrive && typeof window.preloadGoogleDrive === 'function') {
         window.preloadGoogleDrive();
       }
     }, 1000);
   } else {
     // Clear Drive cache on logout
-    if (window.driveInitializationPromise) {
+    if (typeof driveInitializationPromise !== 'undefined') {
       console.log('🧹 Clearing Drive cache on logout');
       driveInitializationPromise = null;
     }
     localStorage.removeItem('drive_last_init');
+    localStorage.removeItem('drive_folder_id');
   }
 });
 
@@ -175,16 +172,42 @@ document.addEventListener('DOMContentLoaded', () => {
     logoutBtn.addEventListener('click', signOut);
   }
   
-  // Drive test button
+  // Drive test button with enhanced error handling
   const driveTestBtn = document.getElementById('drive-test-btn');
   if (driveTestBtn) {
     driveTestBtn.addEventListener('click', () => {
       console.log('🎯 Drive test button clicked');
+      console.log('📊 Drive function status:', {
+        createPlayerSaveFolder: typeof window.createPlayerSaveFolder,
+        gapi: typeof window.gapi,
+        windowLoaded: window.appLoaded
+      });
+      
       if (typeof window.createPlayerSaveFolder === 'function') {
         window.createPlayerSaveFolder();
       } else {
-        console.error('createPlayerSaveFolder function not available');
-        alert('Google Drive module failed to load. Please refresh the page.');
+        console.error('❌ createPlayerSaveFolder function not available');
+        
+        // Show detailed error to user
+        const statusEl = document.getElementById('drive-status');
+        if (statusEl) {
+          statusEl.innerHTML = `
+            <div class="drive-error">
+              ❌ Google Drive module not loaded
+              <br><small>This can happen if:</small>
+              <br>• Page is still loading (wait a moment)
+              <br>• Script failed to load (check console F12)
+              <br>• Network issue (check connection)
+              <br><br>
+              <button onclick="window.reloadDriveModule && window.reloadDriveModule()" style="margin-right: 10px;">
+                🔄 Retry Loading Drive
+              </button>
+              <button onclick="window.location.reload()">
+                📄 Refresh Page
+              </button>
+            </div>
+          `;
+        }
       }
     });
   }
@@ -199,4 +222,5 @@ document.addEventListener('DOMContentLoaded', () => {
 if (typeof window !== 'undefined') {
   window.signInWithGoogle = signInWithGoogle;
   window.signOut = signOut;
+  window.restoreSessionAndPreload = restoreSessionAndPreload;
 }
