@@ -1,44 +1,126 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="
-    default-src 'self' https://*.supabase.co https://usfzylsxzznpkuklehbt.supabase.co;
-    connect-src 'self' https://*.supabase.co https://usfzylsxzznpkuklehbt.supabase.co wss://*.supabase.co;
-    script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
-    style-src 'self' 'unsafe-inline';
-  ">
-  <title>Horse Breeding Simulator</title>
+  <title>GlassHorses - Horse Breeding Sim</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-    nav { margin-bottom: 20px; }
-    nav button { margin-right: 10px; padding: 8px 16px; }
-    #user-name { color: #666; font-weight: bold; }
-    #gallery-list { display: flex; flex-wrap: wrap; gap: 20px; }
-    .horse-card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; min-width: 250px; }
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      max-width: 900px; 
+      margin: 0 auto; 
+      padding: 20px; 
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      line-height: 1.6;
+    }
+    header { text-align: center; margin-bottom: 30px; }
+    h1 { color: #2c3e50; text-shadow: 2px 2px 4px rgba(0,0,0,0.1); }
+    nav { 
+      background: white; 
+      padding: 15px; 
+      border-radius: 12px; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    nav button { 
+      margin: 0 8px; 
+      padding: 10px 20px; 
+      border: none; 
+      border-radius: 6px; 
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.3s;
+    }
+    #login-btn { background: #4285f4; color: white; }
+    #login-btn:hover { background: #3367d6; }
+    #logout-btn { background: #ea4335; color: white; }
+    #logout-btn:hover { background: #c5221f; }
+    #user-name { 
+      color: #27ae60; 
+      font-weight: bold; 
+      padding: 8px 12px;
+      background: #e8f5e8; 
+      border-radius: 20px;
+    }
+    .section { 
+      background: white; 
+      padding: 25px; 
+      margin: 20px 0; 
+      border-radius: 12px; 
+      box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    }
+    #gallery-list { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+      gap: 20px; 
+      margin-top: 20px;
+    }
+    .horse-card { 
+      border: 2px solid #3498db; 
+      padding: 20px; 
+      border-radius: 12px; 
+      background: linear-gradient(145deg, #ffffff, #f0f8ff);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .horse-card:hover { 
+      transform: translateY(-5px); 
+      box-shadow: 0 10px 30px rgba(52,152,219,0.3);
+    }
+    button { 
+      background: #3498db; 
+      color: white; 
+      border: none; 
+      padding: 8px 16px; 
+      border-radius: 6px; 
+      cursor: pointer;
+      margin: 4px;
+      font-weight: 500;
+    }
+    button:hover { background: #2980b9; }
+    button:disabled { background: #bdc3c7; cursor: not-allowed; }
+    pre { 
+      background: #ecf0f1; 
+      padding: 12px; 
+      border-radius: 6px; 
+      font-size: 0.9em;
+      max-height: 150px; 
+      overflow-y: auto;
+      margin: 10px 0;
+    }
+    .drive-status { 
+      padding: 15px; 
+      border-radius: 8px; 
+      margin: 15px 0;
+      font-weight: bold;
+    }
+    .drive-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .drive-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
   </style>
 </head>
 <body>
   <header>
-    <h1>Horse Breeding Simulator</h1>
-    <nav>
-      <button onclick="signInWithGoogle()">Login with Google</button>
-      <button onclick="signOut()">Logout</button>
-      <span id="user-name">Not logged in</span>
-    </nav>
+    <h1>🐎 GlassHorses</h1>
+    <p>Horse Breeding Simulator with Community Gallery</p>
   </header>
 
+  <nav>
+    <button id="login-btn" onclick="signInWithGoogle()">Login with Google</button>
+    <button id="logout-btn" onclick="signOut()" style="display: none;">Logout</button>
+    <span id="user-name">Not logged in</span>
+  </nav>
+
   <main>
-    <section id="single-player">
-      <h2>Single Player Stable</h2>
-      <p>Your breeding game will go here (local JS, no login needed).</p>
-      <button onclick="alert('Breeding logic coming soon!')">Breed Horses</button>
+    <section id="single-player" class="section">
+      <h2>🏇 Single Player Stable</h2>
+      <p>Your personal horse breeding game (local + Google Drive saves).</p>
+      <button onclick="createPlayerSaveFolder()">🗄️ Test Drive Save (Create Folder + test.md)</button>
+      <button onclick="alert('Horse breeding logic coming next!')">🐴 Breed Horses</button>
+      <div id="drive-status"></div>
     </section>
 
-    <section id="community-gallery">
-      <h2>Community Gallery</h2>
-      <div id="gallery-list">Gallery loads here...</div>
+    <section id="community-gallery" class="section">
+      <h2>🌟 Community Gallery</h2>
+      <div id="gallery-list">Loading gallery...</div>
     </section>
   </main>
 
@@ -46,36 +128,56 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
   <script>
-    // Replace with YOUR Supabase project details
+    // === SUPABASE CONFIG ===
     const supabaseUrl = 'https://usfzylsxzznpkuklehbt.supabase.co';
-    const supabaseKey = 'sb_publishable_cHJ36KwZaEEC38BXJXEnfQ_X_e1RU8U';
+    const supabaseKey = 'YOUR_ANON_PUBLIC_KEY_HERE'; // Replace from Supabase dashboard!
     const sb = supabase.createClient(supabaseUrl, supabaseKey);
 
-    // Auth state listener
+    // === GOOGLE DRIVE CONFIG ===
+    const CLIENT_ID = '515090161385-jnmj9bp7p9i6uegdr0lqo5opbte2ivee.apps.googleusercontent.com';
+    let gapiInited = false;
+    let driveClientReady = false;
+
+    // === AUTH STATE LISTENER ===
     sb.auth.onAuthStateChange((event, session) => {
-      document.getElementById('user-name').textContent = 
-        session?.user ? (session.user.user_metadata.full_name || 'Logged in') : 'Not logged in';
-      loadGallery();  // Refresh gallery on login
+      const userNameEl = document.getElementById('user-name');
+      const loginBtn = document.getElementById('login-btn');
+      const logoutBtn = document.getElementById('logout-btn');
+      
+      if (session?.user) {
+        userNameEl.textContent = session.user.user_metadata.full_name || session.user.email || 'Logged in';
+        loginBtn.style.display = 'none';
+        logoutBtn.style.display = 'inline-block';
+        loadGallery();
+      } else {
+        userNameEl.textContent = 'Not logged in';
+        loginBtn.style.display = 'inline-block';
+        logoutBtn.style.display = 'none';
+      }
     });
 
-    // Login button function
+    // === GOOGLE LOGIN WITH DRIVE SCOPE ===
     async function signInWithGoogle() {
       const { error } = await sb.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          scopes: 'https://www.googleapis.com/auth/drive.appdata',
+          scopes: 'openid email profile https://www.googleapis.com/auth/drive.appdata',
           redirectTo: window.location.origin
         }
       });
-      if (error) console.error('Login error:', error);
+      if (error) {
+        console.error('Login error:', error);
+        alert('Login failed: ' + error.message);
+      }
     }
 
-    // Logout
+    // === LOGOUT ===
     async function signOut() {
       await sb.auth.signOut();
+      document.getElementById('drive-status').innerHTML = '';
     }
 
-    // Load gallery (will show empty/error until Supabase table exists)
+    // === LOAD COMMUNITY GALLERY ===
     async function loadGallery() {
       const { data, error } = await sb
         .from('community_gallery')
@@ -83,22 +185,163 @@
         .order('created_at', { ascending: false });
       
       const galleryEl = document.getElementById('gallery-list');
+      
       if (error) {
-        galleryEl.innerHTML = '<p style="color: red;">Gallery error (expected until Supabase setup):</p><pre>' + error.message + '</pre>';
+        galleryEl.innerHTML = `
+          <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #e74c3c;">
+            <h3>Gallery Error</h3>
+            <p>${error.message}</p>
+            <p>Check console (F12) for details.</p>
+          </div>
+        `;
         return;
       }
-      galleryEl.innerHTML = (data || []).length 
-        ? data.map(horse => `
-          <div class="horse-card">
-            <h3>${horse.creator_name}'s horse</h3>
-            <pre>${JSON.stringify(horse.horse_dna)}</pre>
-            <button onclick="alert('Buy logic: ${horse.id}')">Buy for 100 Gold</button>
+      
+      if (!data || data.length === 0) {
+        galleryEl.innerHTML = `
+          <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #7f8c8d;">
+            <h3>No horses yet!</h3>
+            <p>Be the first to upload after login 🐎</p>
           </div>
-        `).join('')
-        : '<p>No horses yet. Upload one after login!</p>';
+        `;
+        return;
+      }
+      
+      galleryEl.innerHTML = data.map(horse => `
+        <div class="horse-card">
+          <h3>🐎 ${horse.creator_name}</h3>
+          <pre>${JSON.stringify(horse.horse_dna, null, 2)}</pre>
+          <div>
+            <button onclick="alert('Buy: ${horse.id} (100 Gold)')">💰 Buy (100 Gold)</button>
+            <button onclick="deleteHorse('${horse.id}')">🗑️ Delete (owner only)</button>
+            <span style="float: right; color: #27ae60;">⭐ ${horse.votes || 0}</span>
+          </div>
+        </div>
+      `).join('');
     }
 
-    // Load gallery on page load
+    // === GOOGLE DRIVE INIT ===
+    async function initGoogleDrive() {
+      if (gapiInited) return;
+      
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://apis.google.com/js/api.js';
+        script.onload = () => {
+          gapi.load('client:auth2', async () => {
+            try {
+              await gapi.client.init({
+                apiKey: false,
+                discoveryDocs: ['https://www.googleapis.com/discovery/v3/apis/drive/v3/rest'],
+                scope: 'https://www.googleapis.com/auth/drive.appdata'
+              });
+              gapiInited = true;
+              resolve();
+            } catch (error) {
+              reject(error);
+            }
+          });
+        };
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    // === CREATE PLAYER SAVE FOLDER + test.md ===
+    async function createPlayerSaveFolder() {
+      const statusEl = document.getElementById('drive-status');
+      statusEl.innerHTML = '🔄 Initializing Google Drive...';
+      
+      try {
+        // Check login
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session) {
+          throw new Error('Please login with Google first!');
+        }
+
+        await initGoogleDrive();
+        statusEl.innerHTML = '📁 Creating HorseGame folder...';
+
+        // Set OAuth token from Supabase Google session
+        await gapi.auth.setToken({
+          access_token: session.provider_token
+        });
+
+        const drive = gapi.client.drive;
+
+        // 1. Create appDataFolder "HorseGame" (HIDDEN from Drive UI)
+        const folderMetadata = {
+          name: 'HorseGame',
+          mimeType: 'application/vnd.google-apps.folder',
+          appProperties: {
+            folderType: 'horseGameSaves'
+          }
+        };
+
+        const folder = await drive.files.create({
+          resource: folderMetadata,
+          fields: 'id,name'
+        });
+
+        const folderId = folder.result.id;
+        statusEl.innerHTML = `✅ Folder created! ID: ${folderId}<br>📄 Creating test.md...`;
+
+        // 2. Create test.md with timestamp
+        const timestamp = new Date().toISOString();
+        const testContent = `# GlassHorses Save File\n\n**Created:** ${timestamp}\n**Player:** ${session.user.user_metadata.full_name || session.user.email}\n**Folder ID:** ${folderId}\n\n---\n\nTest save file created successfully!\nYour horse DNA, gold, and stable will be stored here.`;
+
+        const fileMetadata = {
+          name: 'test.md',
+          parents: [folderId]
+        };
+
+        await drive.files.create({
+          resource: fileMetadata,
+          media: {
+            mimeType: 'text/markdown',
+            body: testContent
+          },
+          fields: 'id'
+        });
+
+        statusEl.innerHTML = `
+          <div class="drive-success">
+            ✅ SUCCESS! Drive folder + test.md created!
+            <br><strong>Folder ID:</strong> ${folderId}
+            <br><strong>Created:</strong> ${timestamp}
+            <br><small>Check Google Takeout → Drive → Other → HorseGame folder</small>
+          </div>
+        `;
+
+        console.log('✅ Drive folder created:', folderId);
+        
+      } catch (error) {
+        console.error('Drive error:', error);
+        statusEl.innerHTML = `
+          <div class="drive-error">
+            ❌ Drive Error: ${error.message || error.body?.error?.message || 'Unknown error'}
+            <br><small>Open F12 console for full details</small>
+          </div>
+        `;
+      }
+    }
+
+    // === DELETE HORSE (RLS protected) ===
+    async function deleteHorse(id) {
+      const { error } = await sb
+        .from('community_gallery')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        alert('Delete failed: ' + (error.message || 'Not your horse'));
+      } else {
+        loadGallery();
+        alert('Horse deleted!');
+      }
+    }
+
+    // === PAGE LOAD ===
     loadGallery();
   </script>
 </body>
