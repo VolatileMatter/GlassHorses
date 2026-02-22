@@ -4,7 +4,10 @@
 // ==================== HERD TABS ====================
 window.refreshHerdTabs = function() {
   const bar = document.getElementById('herd-tabs');
-  if (!bar || !window.HorseManager) return;
+  if (!bar || !window.HorseManager) {
+    console.log('Herd tabs not ready yet');
+    return;
+  }
   
   const herds = window.HorseManager.getAllHerds();
   const activeId = window.HorseManager.getActiveHerdId();
@@ -43,13 +46,16 @@ window.selectHerd = function(herdId) {
 };
 
 window.onHerdChange = function() {
-  window.refreshHerdTabs();
-  if (window.refreshDebugHerdSwitcher) window.refreshDebugHerdSwitcher();
-  if (window.renderDebugRoster) window.renderDebugRoster();
-  
-  // If in status mode, refresh the status display
-  if (window.currentMode === 'status' && window.renderStatusOverlay) {
-    window.renderStatusOverlay();
+  // Only refresh if DOM is ready
+  if (document.getElementById('herd-tabs')) {
+    window.refreshHerdTabs();
+    if (window.refreshDebugHerdSwitcher) window.refreshDebugHerdSwitcher();
+    if (window.renderDebugRoster) window.renderDebugRoster();
+    
+    // If in status mode, refresh the status display
+    if (window.currentMode === 'status' && window.renderStatusOverlay) {
+      window.renderStatusOverlay();
+    }
   }
 };
 
