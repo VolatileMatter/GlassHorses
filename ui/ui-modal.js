@@ -25,3 +25,6 @@ window.submitCreateHerd = function() {
   window.refreshDebugHerdSwitcher?.();
   window.renderDebugRoster?.();
 };
+// Mark this script as loaded
+window.scriptsLoaded.uiMode = true;
+window.checkAllScriptsLoaded();

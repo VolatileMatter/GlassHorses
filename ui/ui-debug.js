@@ -85,3 +85,6 @@ window.renderDebugRoster = function() {
     </div>`;
   }).join('');
 };
+// Mark this script as loaded
+window.scriptsLoaded.uiMode = true;
+window.checkAllScriptsLoaded();

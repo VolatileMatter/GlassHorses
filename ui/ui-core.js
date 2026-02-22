@@ -29,3 +29,7 @@ window.handleScriptError = function(name) {
   window.scriptsLoaded[name] = true;
   window.checkAllScriptsLoaded();
 };
+
+// Mark this script as loaded
+window.scriptsLoaded.uiCore = true;
+window.checkAllScriptsLoaded();

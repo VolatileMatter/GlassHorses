@@ -50,3 +50,6 @@ window.renderStatusOverlay = function() {
     overlay.innerHTML = '<span id="status-panel-title">Status</span><div style="color:#e03030;font-size:0.8em;padding-top:20px">Error loading status data.</div>';
   }
 };
+// Mark this script as loaded
+window.scriptsLoaded.uiMode = true;
+window.checkAllScriptsLoaded();

@@ -35,3 +35,6 @@ window.onHerdChange = function() {
   window.renderDebugRoster?.();
   if (window.currentMode === 'status') window.renderStatusOverlay?.();
 };
+// Mark this script as loaded
+window.scriptsLoaded.uiMode = true;
+window.checkAllScriptsLoaded();

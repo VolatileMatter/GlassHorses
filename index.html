@@ -10,7 +10,7 @@
   <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 
   <style>
-    /* Keep all the CSS styles here - these don't need to be split */
+    /* Keep all the CSS styles from your original */
     *, *::before, *::after { box-sizing: border-box; }
     /* ... (all the CSS from your original index.html) ... */
   </style>
@@ -108,43 +108,33 @@
     </section>
   </main>
 
-  <!-- Scripts - Note the order matters! -->
+  <!-- Load Supabase first -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
-  <!-- UI Modules (load these first) -->
-  <script src="ui/ui-core.js" onload="window.scriptsLoaded.uiCore=true; window.checkAllScriptsLoaded();" onerror="window.handleScriptError('uiCore')"></script>
-  <script src="ui/ui-mode.js" onload="window.scriptsLoaded.uiMode=true; window.checkAllScriptsLoaded();" onerror="window.handleScriptError('uiMode')"></script>
-  <script src="ui/ui-herds.js" onload="window.scriptsLoaded.uiHerds=true; window.checkAllScriptsLoaded();" onerror="window.handleScriptError('uiHerds')"></script>
-  <script src="ui/ui-status.js" onload="window.scriptsLoaded.uiStatus=true; window.checkAllScriptsLoaded();" onerror="window.handleScriptError('uiStatus')"></script>
-  <script src="ui/ui-debug.js" onload="window.scriptsLoaded.uiDebug=true; window.checkAllScriptsLoaded();" onerror="window.handleScriptError('uiDebug')"></script>
-  <script src="ui/ui-modal.js" onload="window.scriptsLoaded.uiModal=true; window.checkAllScriptsLoaded();" onerror="window.handleScriptError('uiModal')"></script>
+  <!-- Core modules -->
+  <script src="config.js"></script>
+  <script src="horses.js"></script>
+  <script src="graze.js"></script>
+  <script src="travel.js"></script>
+  <script src="sleep.js"></script>
+  <script src="auth.js"></script>
+  <script src="drive.js"></script>
+  <script src="gallery.js"></script>
+  <script src="app.js"></script>
   
-  <!-- Core Game Modules -->
-  <script src="config.js"  onload="window.scriptsLoaded.config=true;  window.checkAllScriptsLoaded();" onerror="window.handleScriptError('config')"></script>
-  <script src="auth.js"    onload="window.scriptsLoaded.auth=true;    window.checkAllScriptsLoaded();" onerror="window.handleScriptError('auth')"></script>
-  <script src="drive.js"   onload="window.scriptsLoaded.drive=true;   window.checkAllScriptsLoaded();" onerror="window.handleScriptError('drive')"></script>
-  <script src="gallery.js" onload="window.scriptsLoaded.gallery=true; window.checkAllScriptsLoaded();" onerror="window.handleScriptError('gallery')"></script>
-  <script src="horses.js"  onload="window.scriptsLoaded.horses=true;  window.checkAllScriptsLoaded();" onerror="window.handleScriptError('horses')"></script>
-  <script src="travel.js"  onload="window.scriptsLoaded.travel=true;  window.checkAllScriptsLoaded();" onerror="window.handleScriptError('travel')"></script>
-  <script src="graze.js"   onload="window.scriptsLoaded.graze=true;   window.checkAllScriptsLoaded();" onerror="window.handleScriptError('graze')"></script>
-  <script src="sleep.js"   onload="window.scriptsLoaded.sleep=true;   window.checkAllScriptsLoaded();" onerror="window.handleScriptError('sleep')"></script>
-  <script src="app.js"     onload="window.scriptsLoaded.app=true;     window.checkAllScriptsLoaded();" onerror="window.handleScriptError('app')"></script>
+  <!-- UI Modules - load these last after DOM is ready -->
+  <script src="ui/ui-core.js"></script>
+  <script src="ui/ui-mode.js"></script>
+  <script src="ui/ui-herds.js"></script>
+  <script src="ui/ui-status.js"></script>
+  <script src="ui/ui-debug.js"></script>
+  <script src="ui/ui-modal.js"></script>
 
   <script>
-  // Wait for DOM to be ready
-  document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM ready, waiting for scripts...');
-  });
-
-  document.addEventListener('allScriptsLoaded', () => {
-    console.log('All scripts loaded, initializing...');
-    
-    if (window.HorseManager) {
-      window.HorseManager.onChange(window.onHerdChange);
-    }
-    
-    // Small delay to ensure DOM is fully ready
-    setTimeout(() => {
+    // Wait for DOM and all scripts to be ready
+    function initializeApp() {
+      console.log('Initializing app...');
+      
       const canvasWrap = document.getElementById('canvas-wrap');
       const grazeBtn = document.getElementById('btn-graze');
       const statusBtn = document.getElementById('btn-status');
@@ -154,7 +144,15 @@
         return;
       }
       
-      // Boot graze silently
+      // Set up HorseManager change handler
+      if (window.HorseManager) {
+        window.HorseManager.onChange(window.onHerdChange);
+        
+        // Load debug herds by default for now
+        window.HorseManager.loadDebugHerds();
+      }
+      
+      // Boot graze mode
       if (window.GrazeModule) {
         console.log('Mounting graze module');
         window.GrazeModule.mount(canvasWrap);
@@ -164,25 +162,24 @@
         document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active'));
         if (grazeBtn) grazeBtn.classList.add('active');
         if (statusBtn) statusBtn.textContent = 'View Status';
-      } else {
-        console.error('GrazeModule not available');
       }
-    }, 200);
-  });
-  
-  // Fallback if allScriptsLoaded doesn't fire
-  setTimeout(() => {
-    if (!window.currentMode) {
-      console.log('Fallback initialization');
-      const canvasWrap = document.getElementById('canvas-wrap');
-      if (canvasWrap && window.GrazeModule) {
-        window.GrazeModule.mount(canvasWrap);
-        window.currentMode = 'graze';
-        document.getElementById('btn-graze')?.classList.add('active');
-      }
+      
+      // Refresh UI
+      if (window.refreshHerdTabs) window.refreshHerdTabs();
+      if (window.refreshDebugHerdSwitcher) window.refreshDebugHerdSwitcher();
+      if (window.renderDebugRoster) window.renderDebugRoster();
+      
+      console.log('App initialized successfully');
     }
-  }, 2000);
-</script>
+
+    // Start initialization when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeApp);
+    } else {
+      // DOM is already loaded
+      initializeApp();
+    }
+  </script>
 
   <!-- Minimal status button for dev -->
   <div style="position:fixed;bottom:10px;right:10px;z-index:1000">
