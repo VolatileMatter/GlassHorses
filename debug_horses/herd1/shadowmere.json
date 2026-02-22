@@ -1,0 +1,55 @@
+{
+  "id": "horse_shadowmere",
+  "barn_name": "Shadowmere",
+  "formal_name": "Dark Sovereign of the Ashfen",
+  "current_herd": "Ironmoor Stable",
+  "birth_herd": "Ashfen Wilds",
+  "birthday": "2021-03-14",
+  "sex": "stallion",
+  "age": 4,
+  "age_last_calculated": "2025-03-14",
+  "color": "#2a1a10",
+  "personality": {
+    "temperament": "stoic",
+    "traits": [
+      "brave",
+      "stubborn",
+      "loyal"
+    ],
+    "notes": "Rarely spooked. Bonds deeply with one rider. Distrustful of strangers at first."
+  },
+  "genetics": {
+    "coat": "black",
+    "markings": "none",
+    "build": "heavy",
+    "dominant_genes": [
+      "G_black",
+      "G_heavy_build"
+    ],
+    "recessive_genes": [
+      "G_speed_burst"
+    ],
+    "notes": "Placeholder genetics \u2014 full gene system coming soon."
+  },
+  "abilities": [
+    {
+      "id": "ability_nightrunner",
+      "name": "Night Runner",
+      "description": "Moves faster and recovers more HP during sleep ticks.",
+      "active_in": [
+        "sleep"
+      ],
+      "placeholder": true
+    },
+    {
+      "id": "ability_ironhide",
+      "name": "Iron Hide",
+      "description": "Takes reduced injury damage during travel obstacles.",
+      "active_in": [
+        "travel"
+      ],
+      "placeholder": true
+    }
+  ],
+  "herd_id": "herd1"
+}

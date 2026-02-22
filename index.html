@@ -10,139 +10,341 @@
   <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
 
   <style>
-    /* === MODE SWITCHER === */
+    /* ===== TOPBAR ===== */
+    #topbar {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 6px; flex-wrap: wrap; gap: 8px;
+    }
+    #debug-toggle-btn {
+      font-size: 0.75em; padding: 5px 14px; border-radius: 20px;
+      border: 1.5px solid rgba(255,120,0,0.5); color: #ff9944;
+      background: rgba(255,80,0,0.08); cursor: pointer;
+      font-family: monospace; letter-spacing: 0.05em; transition: all 0.2s;
+    }
+    #debug-toggle-btn:hover { background: rgba(255,80,0,0.2); box-shadow: 0 0 12px rgba(255,100,0,0.4); }
+    #debug-toggle-btn.active { background: rgba(255,80,0,0.25); border-color: #ff6622; color: #ff6622; box-shadow: 0 0 16px rgba(255,80,0,0.5); }
+
+    /* ===== HERD TABS ===== */
+    #herd-bar {
+      display: flex; align-items: center; gap: 8px;
+      flex-wrap: wrap; margin-bottom: 4px; padding: 10px 14px;
+      background: rgba(0,0,0,0.35); border-radius: 14px;
+      border: 1px solid rgba(255,0,255,0.15);
+    }
+    #herd-bar-label {
+      font-size: 0.72em; color: #666; text-transform: uppercase;
+      letter-spacing: 0.1em; white-space: nowrap; margin-right: 4px;
+    }
+    .herd-tab {
+      padding: 6px 16px; border-radius: 20px; font-size: 0.82em; font-weight: bold;
+      cursor: pointer; border: 1.5px solid rgba(138,43,226,0.4); color: #cc88ff;
+      background: rgba(138,43,226,0.08); transition: all 0.25s; white-space: nowrap;
+      font-family: monospace;
+    }
+    .herd-tab:hover { background: rgba(138,43,226,0.2); border-color: rgba(138,43,226,0.7); }
+    .herd-tab.active {
+      background: rgba(138,43,226,0.3); border-color: #cc88ff;
+      color: #fff; box-shadow: 0 0 14px rgba(138,43,226,0.5);
+    }
+    .herd-tab .herd-tab-count { font-size: 0.8em; color: #888; margin-left: 5px; }
+    #create-herd-btn {
+      padding: 6px 14px; border-radius: 20px; font-size: 0.8em; font-weight: bold;
+      cursor: pointer; border: 1.5px dashed rgba(0,255,255,0.4); color: #00cccc;
+      background: rgba(0,255,255,0.05); transition: all 0.25s; font-family: monospace;
+      white-space: nowrap;
+    }
+    #create-herd-btn:hover { background: rgba(0,255,255,0.15); border-color: #00ffff; color: #00ffff; box-shadow: 0 0 12px rgba(0,255,255,0.3); }
+
+    /* Create Herd Modal */
+    #create-herd-modal {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,0.75); backdrop-filter: blur(4px);
+      align-items: center; justify-content: center;
+    }
+    #create-herd-modal.open { display: flex; }
+    #create-herd-box {
+      background: linear-gradient(135deg, #0d0d1a, #1a0d2e);
+      border: 2px solid rgba(138,43,226,0.6); border-radius: 20px;
+      padding: 32px; width: 360px; max-width: 90vw;
+      box-shadow: 0 0 60px rgba(138,43,226,0.4);
+    }
+    #create-herd-box h3 { color: #cc88ff; margin: 0 0 18px; font-size: 1.1em; }
+    #create-herd-box input, #create-herd-box textarea {
+      width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.5);
+      border: 1.5px solid rgba(138,43,226,0.4); border-radius: 10px;
+      color: #e0e0e0; padding: 10px 14px; font-family: monospace;
+      font-size: 0.9em; margin-bottom: 12px; outline: none; resize: vertical;
+    }
+    #create-herd-box input:focus, #create-herd-box textarea:focus {
+      border-color: #cc88ff; box-shadow: 0 0 10px rgba(138,43,226,0.3);
+    }
+    #create-herd-box label { color: #888; font-size: 0.78em; display: block; margin-bottom: 4px; font-family: monospace; }
+    .modal-btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; }
+    .modal-btns button { padding: 8px 20px; border-radius: 10px; font-weight: bold; cursor: pointer; font-family: monospace; }
+    #modal-cancel { background: rgba(80,80,80,0.3); border: 1.5px solid #555; color: #aaa; }
+    #modal-create { background: rgba(138,43,226,0.3); border: 1.5px solid #cc88ff; color: #cc88ff; }
+    #modal-create:hover { background: rgba(138,43,226,0.5); }
+
+    /* ===== MODE SWITCHER ===== */
     .mode-switcher {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      margin: 16px 0 20px;
-      flex-wrap: wrap;
+      display: flex; gap: 10px; justify-content: center;
+      margin: 14px 0 18px; flex-wrap: wrap;
     }
-
     .mode-btn {
-      padding: 10px 26px;
-      border-radius: 30px;
-      font-size: 1em;
-      font-weight: bold;
-      letter-spacing: 0.04em;
-      cursor: pointer;
-      border: 2px solid;
-      transition: all 0.3s;
-      background: rgba(0,0,0,0.4);
-      backdrop-filter: blur(6px);
+      padding: 10px 26px; border-radius: 30px; font-size: 1em; font-weight: bold;
+      letter-spacing: 0.04em; cursor: pointer; border: 2px solid;
+      transition: all 0.3s; background: rgba(0,0,0,0.4); backdrop-filter: blur(6px);
     }
+    .mode-btn.graze  { border-color: #4caf50; color: #4caf50; }
+    .mode-btn.graze:hover, .mode-btn.graze.active  { background: rgba(76,175,80,0.2); box-shadow: 0 0 22px rgba(76,175,80,0.6); transform: translateY(-2px); }
+    .mode-btn.travel { border-color: #ff9800; color: #ff9800; }
+    .mode-btn.travel:hover, .mode-btn.travel.active { background: rgba(255,152,0,0.2); box-shadow: 0 0 22px rgba(255,152,0,0.6); transform: translateY(-2px); }
+    .mode-btn.sleep  { border-color: #5c8af5; color: #5c8af5; }
+    .mode-btn.sleep:hover, .mode-btn.sleep.active  { background: rgba(92,138,245,0.2); box-shadow: 0 0 22px rgba(92,138,245,0.6); transform: translateY(-2px); }
 
-    .mode-btn.graze {
-      border-color: #4caf50;
-      color: #4caf50;
-      box-shadow: 0 0 10px rgba(76,175,80,0.3);
-    }
-    .mode-btn.graze:hover, .mode-btn.graze.active {
-      background: rgba(76,175,80,0.2);
-      box-shadow: 0 0 22px rgba(76,175,80,0.6);
-      transform: translateY(-2px);
-    }
+    #mode-canvas-container { min-height: 420px; display: flex; flex-direction: column; align-items: center; }
+    .mode-label { font-size: 0.75em; text-align: center; margin-bottom: 8px; color: #777; letter-spacing: 0.08em; text-transform: uppercase; }
 
-    .mode-btn.travel {
-      border-color: #ff9800;
-      color: #ff9800;
-      box-shadow: 0 0 10px rgba(255,152,0,0.3);
+    /* ===== DEBUG ===== */
+    #debug-banner {
+      display: none;
+      background: linear-gradient(90deg, rgba(255,60,0,0.12), rgba(255,160,0,0.12));
+      border: 1.5px solid rgba(255,120,0,0.45); border-radius: 10px;
+      padding: 9px 16px; margin: 8px 0;
+      font-family: monospace; font-size: 0.8em; color: #ffaa55;
     }
-    .mode-btn.travel:hover, .mode-btn.travel.active {
-      background: rgba(255,152,0,0.2);
-      box-shadow: 0 0 22px rgba(255,152,0,0.6);
-      transform: translateY(-2px);
-    }
+    #debug-banner.visible { display: block; }
+    #debug-banner strong { color: #ff6622; }
 
-    .mode-btn.sleep {
-      border-color: #5c8af5;
-      color: #5c8af5;
-      box-shadow: 0 0 10px rgba(92,138,245,0.3);
+    #debug-roster { display: none; margin-top: 16px; }
+    #debug-roster.visible { display: block; }
+    #debug-roster h3 { color: #ff9933; font-family: monospace; font-size: 0.9em; margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.1em; }
+    .debug-horse-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(225px, 1fr)); gap: 12px; }
+    .debug-horse-card {
+      background: rgba(10,10,10,0.75); border: 1.5px solid rgba(255,120,0,0.3);
+      border-radius: 12px; padding: 14px; font-family: monospace; font-size: 0.77em; color: #ccc;
+      transition: border-color 0.2s;
     }
-    .mode-btn.sleep:hover, .mode-btn.sleep.active {
-      background: rgba(92,138,245,0.2);
-      box-shadow: 0 0 22px rgba(92,138,245,0.6);
-      transform: translateY(-2px);
-    }
+    .debug-horse-card:hover { border-color: rgba(255,120,0,0.7); }
+    .debug-horse-card .dh-name { font-size: 1em; font-weight: bold; margin-bottom: 2px; }
+    .debug-horse-card .dh-formal { color: #777; font-size: 0.85em; margin-bottom: 8px; font-style: italic; }
+    .debug-horse-card .dh-row { display: flex; justify-content: space-between; margin: 2px 0; color: #aaa; }
+    .debug-horse-card .dh-row span:first-child { color: #555; }
+    .dh-swatch { width: 13px; height: 13px; border-radius: 50%; display: inline-block; vertical-align: middle; margin-right: 4px; border: 1px solid rgba(255,255,255,0.2); }
+    .dh-section { margin-top: 8px; border-top: 1px solid rgba(255,120,0,0.15); padding-top: 6px; }
+    .dh-section-label { color: #555; font-size: 0.82em; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .dh-traits { color: #88aacc; margin-bottom: 2px; }
+    .dh-ability { color: #ffaa44; margin: 3px 0 1px; }
+    .dh-ability-desc { color: #555; font-size: 0.88em; margin-left: 12px; margin-bottom: 3px; }
+    .dh-ability-scope { color: #446; font-size: 0.85em; margin-left: 4px; }
+    .dh-genes { color: #7a9a6a; font-size: 0.88em; }
 
-    #mode-canvas-container {
-      min-height: 420px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+    /* Empty herd state */
+    .empty-herd-msg {
+      text-align: center; padding: 60px 20px; color: #555; font-family: monospace;
     }
-
-    .mode-label {
-      font-size: 0.78em;
-      text-align: center;
-      margin-bottom: 8px;
-      color: #888;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
+    .empty-herd-msg h3 { color: #777; margin-bottom: 8px; }
   </style>
 
   <script>
     window.appLoaded = false;
     window.scriptsLoaded = {
-      config: false, auth: false, drive: false,
-      gallery: false, travel: false, graze: false, sleep: false, app: false
+      config: false, auth: false, drive: false, gallery: false,
+      horses: false, travel: false, graze: false, sleep: false, app: false
     };
-
     function checkAllScriptsLoaded() {
-      const allLoaded = Object.values(window.scriptsLoaded).every(Boolean);
-      if (allLoaded) {
+      if (Object.values(window.scriptsLoaded).every(Boolean)) {
         window.appLoaded = true;
         console.log('✅ All scripts loaded');
         document.dispatchEvent(new CustomEvent('allScriptsLoaded'));
       }
     }
-
     function handleScriptError(name) {
-      console.error(`❌ Failed to load: ${name}.js`);
+      console.error('❌ Failed to load: ' + name + '.js');
       window.scriptsLoaded[name] = true;
       checkAllScriptsLoaded();
     }
 
-    // ---- Mode Management ----
+    /* ===== DEBUG MODE ===== */
+    let _debugActive = false;
+    window.isDebugActive = () => _debugActive;
+
+    function toggleDebugMode() {
+      _debugActive = !_debugActive;
+      document.getElementById('debug-toggle-btn').textContent = _debugActive ? '🐛 Debug ON' : '🐛 Debug';
+      document.getElementById('debug-toggle-btn').classList.toggle('active', _debugActive);
+      document.getElementById('debug-banner').classList.toggle('visible', _debugActive);
+      document.getElementById('debug-roster').classList.toggle('visible', _debugActive);
+
+      if (_debugActive) {
+        if (window.HorseManager) {
+          window.HorseManager.loadDebugHerds();
+          window.HorseManager.onChange(onHerdChange);
+        }
+      } else {
+        if (window.HorseManager) window.HorseManager.loadFromSave([]);
+      }
+      refreshHerdBar();
+      if (window.currentMode) switchMode(window.currentMode);
+    }
+    window.toggleDebugMode = toggleDebugMode;
+
+    /* ===== HERD BAR ===== */
+    function refreshHerdBar() {
+      const bar = document.getElementById('herd-tabs');
+      if (!bar || !window.HorseManager) return;
+      const herds = window.HorseManager.getAllHerds();
+      const activeId = window.HorseManager.getActiveHerdId();
+      bar.innerHTML = herds.map(({ meta, horses }) => `
+        <button class="herd-tab${meta.herd_id === activeId ? ' active' : ''}"
+                onclick="selectHerd('${meta.herd_id}')">
+          🐎 ${meta.herd_name}
+          <span class="herd-tab-count">(${horses.length})</span>
+        </button>
+      `).join('');
+
+      // Show/hide create btn - always show if debug or logged in
+      const createBtn = document.getElementById('create-herd-btn');
+      if (createBtn) createBtn.style.display = (_debugActive || window.GlassHorsesDrive) ? 'inline-block' : 'none';
+    }
+
+    function selectHerd(herdId) {
+      if (!window.HorseManager) return;
+      window.HorseManager.setActiveHerd(herdId);
+      refreshHerdBar();
+      if (_debugActive) renderDebugRoster();
+      if (window.currentMode) switchMode(window.currentMode);
+    }
+    window.selectHerd = selectHerd;
+
+    function onHerdChange() {
+      refreshHerdBar();
+      if (_debugActive) renderDebugRoster();
+    }
+
+    /* ===== CREATE HERD MODAL ===== */
+    function openCreateHerdModal() {
+      document.getElementById('create-herd-modal').classList.add('open');
+      document.getElementById('new-herd-name').value = '';
+      document.getElementById('new-herd-desc').value = '';
+      setTimeout(() => document.getElementById('new-herd-name').focus(), 50);
+    }
+    function closeCreateHerdModal() {
+      document.getElementById('create-herd-modal').classList.remove('open');
+    }
+    function submitCreateHerd() {
+      const name = document.getElementById('new-herd-name').value.trim();
+      if (!name) { document.getElementById('new-herd-name').focus(); return; }
+      const desc = document.getElementById('new-herd-desc').value.trim();
+      if (!window.HorseManager) { closeCreateHerdModal(); return; }
+      const id = window.HorseManager.createHerd(name, desc);
+      window.HorseManager.setActiveHerd(id);
+      closeCreateHerdModal();
+      refreshHerdBar();
+      if (_debugActive) renderDebugRoster();
+      if (window.currentMode) switchMode(window.currentMode);
+    }
+    window.openCreateHerdModal = openCreateHerdModal;
+    window.closeCreateHerdModal = closeCreateHerdModal;
+    window.submitCreateHerd = submitCreateHerd;
+
+    /* ===== DEBUG ROSTER ===== */
+    function renderDebugRoster() {
+      const grid = document.getElementById('debug-horse-grid');
+      if (!grid || !window.HorseManager) return;
+      const horses = window.HorseManager.getHorses();
+      const herd = window.HorseManager.getActiveHerd();
+      const modeIcon = { graze: '🌿', travel: '🏕️', sleep: '🌙' };
+      const title = document.getElementById('debug-roster-title');
+      if (title && herd) title.textContent = `🐛 ${herd.meta.herd_name} — Debug Roster`;
+      if (horses.length === 0) {
+        grid.innerHTML = '<div class="empty-herd-msg"><h3>🐎 No horses in this herd</h3><p>This herd is empty. Horses can be added via save data or breeding (coming soon).</p></div>';
+        return;
+      }
+      grid.innerHTML = horses.map(h => `
+        <div class="debug-horse-card">
+          <div class="dh-name"><span class="dh-swatch" style="background:${h.color}"></span>${h.barn_name}<span style="color:#555;font-weight:normal"> · ${h.sex}</span></div>
+          <div class="dh-formal">${h.formal_name}</div>
+          <div class="dh-row"><span>Age</span><span>${h.age} yrs</span></div>
+          <div class="dh-row"><span>Birthday</span><span>${h.birthday}</span></div>
+          <div class="dh-row"><span>Herd</span><span style="text-align:right;max-width:130px">${h.current_herd}</span></div>
+          <div class="dh-row"><span>Born in</span><span style="text-align:right;max-width:130px">${h.birth_herd}</span></div>
+          <div class="dh-section">
+            <div class="dh-section-label">Personality</div>
+            <div class="dh-traits">🧠 ${h.personality.temperament} · ${h.personality.traits.join(', ')}</div>
+            <div style="color:#556;font-size:0.88em;font-style:italic">${h.personality.notes}</div>
+          </div>
+          <div class="dh-section">
+            <div class="dh-section-label">Genetics</div>
+            <div class="dh-row"><span>Coat</span><span>${h.genetics.coat}</span></div>
+            <div class="dh-row"><span>Markings</span><span>${h.genetics.markings}</span></div>
+            <div class="dh-row"><span>Build</span><span>${h.genetics.build}</span></div>
+            <div class="dh-genes">DOM: ${h.genetics.dominant_genes.join(', ')}<br>REC: ${h.genetics.recessive_genes.join(', ')}</div>
+          </div>
+          <div class="dh-section">
+            <div class="dh-section-label">Abilities</div>
+            ${h.abilities.map(a => `
+              <div class="dh-ability">⚡ ${a.name}<span class="dh-ability-scope">[${a.active_in.map(m => modeIcon[m]||m).join(' ')}]</span></div>
+              <div class="dh-ability-desc">${a.description}</div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+    window.renderDebugRoster = renderDebugRoster;
+
+    /* ===== MODE MANAGEMENT ===== */
     let currentMode = null;
+    window.currentMode = null;
 
     function switchMode(mode) {
-      // Unmount previous
-      if (currentMode === 'graze' && window.GrazeModule)   window.GrazeModule.unmount();
+      if (currentMode === 'graze'  && window.GrazeModule)  window.GrazeModule.unmount();
       if (currentMode === 'travel' && window.TravelGame)   window.TravelGame.unmount();
-      if (currentMode === 'sleep' && window.SleepModule)   window.SleepModule.unmount();
-
+      if (currentMode === 'sleep'  && window.SleepModule)  window.SleepModule.unmount();
       currentMode = mode;
-
-      // Update button states
+      window.currentMode = mode;
       document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-      const btn = document.getElementById(`btn-${mode}`);
+      const btn = document.getElementById('btn-' + mode);
       if (btn) btn.classList.add('active');
-
-      // Update label
       const labels = {
         graze:  '🌿 Graze — horses eat and restore hunger. Required for breeding.',
-        travel: '🏇 Travel — guide your horses past obstacles! SPACE or tap to jump.',
+        travel: '🏕️ Travel — guide your horses past obstacles! SPACE or tap to jump.',
         sleep:  '🌙 Sleep — horses heal injuries, age up, and tick statuses.',
       };
       const labelEl = document.getElementById('mode-label');
       if (labelEl) labelEl.textContent = labels[mode] || '';
-
-      // Mount new
       const container = document.getElementById('mode-canvas-container');
       if (!container) return;
-
-      if (mode === 'graze' && window.GrazeModule)   window.GrazeModule.mount(container);
+      if (mode === 'graze'  && window.GrazeModule)  window.GrazeModule.mount(container);
       if (mode === 'travel' && window.TravelGame)   window.TravelGame.mount(container);
-      if (mode === 'sleep' && window.SleepModule)   window.SleepModule.mount(container);
+      if (mode === 'sleep'  && window.SleepModule)  window.SleepModule.mount(container);
     }
-
     window.switchMode = switchMode;
   </script>
 </head>
 <body>
+
+  <!-- Create Herd Modal -->
+  <div id="create-herd-modal" onclick="if(event.target===this) closeCreateHerdModal()">
+    <div id="create-herd-box">
+      <h3>🐎 Create New Herd</h3>
+      <label>Herd Name</label>
+      <input id="new-herd-name" type="text" placeholder="e.g. Riverside Meadows" maxlength="60"
+             onkeydown="if(event.key==='Enter') submitCreateHerd()">
+      <label>Description (optional)</label>
+      <textarea id="new-herd-desc" rows="3" placeholder="A short description of this herd..."></textarea>
+      <div class="modal-btns">
+        <button id="modal-cancel" onclick="closeCreateHerdModal()">Cancel</button>
+        <button id="modal-create" onclick="submitCreateHerd()">✨ Create Herd</button>
+      </div>
+    </div>
+  </div>
+
   <header>
+    <div id="topbar">
+      <span style="font-size:0.7em;color:#444;font-family:monospace">GlassHorses v1.0</span>
+      <button id="debug-toggle-btn" onclick="toggleDebugMode()">🐛 Debug</button>
+    </div>
     <h1>🐎 GlassHorses</h1>
     <p>Horse Breeding Simulator with Community Gallery</p>
   </header>
@@ -156,10 +358,23 @@
   </nav>
 
   <main>
-    <!-- === GAMEPLAY SECTION === -->
     <section id="single-player" class="section">
       <h2>🏇 Your Stable</h2>
 
+      <div id="debug-banner">
+        <strong>⚠️ DEBUG MODE</strong> — Using <code>debug_horses/herd1/</code> &amp; <code>debug_horses/herd2/</code>.
+        New herds are cached in sessionStorage only. Age calculated live from birthdays.
+        Abilities are placeholders with no gameplay effect yet.
+      </div>
+
+      <!-- Herd Selector Bar -->
+      <div id="herd-bar">
+        <span id="herd-bar-label">Herd:</span>
+        <div id="herd-tabs" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+        <button id="create-herd-btn" onclick="openCreateHerdModal()" style="display:none">＋ New Herd</button>
+      </div>
+
+      <!-- Mode Switcher -->
       <div class="mode-switcher">
         <button id="btn-graze"  class="mode-btn graze"  onclick="switchMode('graze')">🌿 Graze</button>
         <button id="btn-travel" class="mode-btn travel" onclick="switchMode('travel')">🏕️ Travel</button>
@@ -167,20 +382,24 @@
       </div>
 
       <p id="mode-label" class="mode-label">Select a mode above</p>
-
       <div id="mode-canvas-container"></div>
 
-      <div class="actions" style="margin-top: 16px;">
-        <button id="drive-test-btn" style="display:none">🗄️ Create Player Save</button>
+      <!-- Debug Roster -->
+      <div id="debug-roster">
+        <h3 id="debug-roster-title">🐛 Debug Roster</h3>
+        <div id="debug-horse-grid" class="debug-horse-grid"></div>
+      </div>
+
+      <div class="actions" style="margin-top:16px">
+        <button id="drive-test-btn" style="display:none" onclick="window.createPlayerSaveFolder()">🗄️ Save All Herds to Drive</button>
         <button id="breed-btn">🐴 Breed Horses</button>
       </div>
 
       <div id="drive-status" class="drive-status-container"></div>
       <pre id="content" style="display:none"></pre>
-      <div id="drive-debug" style="display:none; margin-top:10px; font-size:0.8em; color:#7f8c8d;"></div>
+      <div id="drive-debug" style="display:none;margin-top:10px;font-size:0.8em;color:#7f8c8d"></div>
     </section>
 
-    <!-- === COMMUNITY GALLERY === -->
     <section id="community-gallery" class="section">
       <h2>🌟 Community Gallery</h2>
       <div id="gallery-list">Loading gallery...</div>
@@ -192,26 +411,33 @@
   <script src="auth.js"    onload="window.scriptsLoaded.auth=true;    checkAllScriptsLoaded();" onerror="handleScriptError('auth')"></script>
   <script src="drive.js"   onload="window.scriptsLoaded.drive=true;   checkAllScriptsLoaded();" onerror="handleScriptError('drive')"></script>
   <script src="gallery.js" onload="window.scriptsLoaded.gallery=true; checkAllScriptsLoaded();" onerror="handleScriptError('gallery')"></script>
+  <script src="horses.js"  onload="window.scriptsLoaded.horses=true;  checkAllScriptsLoaded();" onerror="handleScriptError('horses')"></script>
   <script src="travel.js"  onload="window.scriptsLoaded.travel=true;  checkAllScriptsLoaded();" onerror="handleScriptError('travel')"></script>
   <script src="graze.js"   onload="window.scriptsLoaded.graze=true;   checkAllScriptsLoaded();" onerror="handleScriptError('graze')"></script>
   <script src="sleep.js"   onload="window.scriptsLoaded.sleep=true;   checkAllScriptsLoaded();" onerror="handleScriptError('sleep')"></script>
   <script src="app.js"     onload="window.scriptsLoaded.app=true;     checkAllScriptsLoaded();" onerror="handleScriptError('app')"></script>
 
   <script>
-    // Auto-start in Graze mode once scripts ready
     document.addEventListener('allScriptsLoaded', () => {
+      // Subscribe to herd changes once HorseManager is ready
+      if (window.HorseManager) window.HorseManager.onChange(onHerdChange);
       setTimeout(() => switchMode('graze'), 150);
     });
-    // Fallback if event already fired
     if (window.appLoaded) setTimeout(() => switchMode('graze'), 200);
   </script>
 
-  <div style="position:fixed; bottom:10px; right:10px; z-index:1000;">
+  <div style="position:fixed;bottom:10px;right:10px;z-index:1000">
     <button onclick="
       const d = document.getElementById('drive-debug');
-      d.style.display = d.style.display === 'none' ? 'block' : 'none';
-      d.innerHTML = '<strong>Status:</strong><br>Mode: ' + (window.currentMode||'none') + '<br>Scripts: ' + JSON.stringify(window.scriptsLoaded);
-    " style="font-size:0.7em; padding:5px; opacity:0.6;">🐛 Debug</button>
+      d.style.display = d.style.display==='none'?'block':'none';
+      const hm = window.HorseManager;
+      d.innerHTML = '<strong>Status</strong><br>Mode: '+(window.currentMode||'none')+
+        '<br>Debug: '+(hm?hm.isDebugMode():false)+
+        '<br>Herds: '+(hm?hm.getAllHerds().length:0)+
+        '<br>Active herd: '+(hm&&hm.getActiveHerd()?hm.getActiveHerd().meta.herd_name:'none')+
+        '<br>Horses: '+(hm?hm.getHorses().length:0)+
+        '<br>Scripts: '+JSON.stringify(window.scriptsLoaded);
+    " style="font-size:0.7em;padding:5px;opacity:0.6">🔍 Status</button>
   </div>
 </body>
 </html>

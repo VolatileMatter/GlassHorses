@@ -1,0 +1,49 @@
+{
+  "id": "horse_copperkettle",
+  "barn_name": "Copperkettle",
+  "formal_name": "Gilded Wanderer of the Dustroads",
+  "current_herd": "Ironmoor Stable",
+  "birth_herd": "Dustroads Caravan",
+  "birthday": "2013-09-22",
+  "sex": "gelding",
+  "age": 12,
+  "age_last_calculated": "2025-09-22",
+  "herd_id": "herd1",
+  "color": "#b87333",
+  "personality": {
+    "temperament": "calm",
+    "traits": ["wise", "patient", "protective"],
+    "notes": "The old hand of the stable. Younger horses follow his lead. Rarely hurried, rarely rattled."
+  },
+  "genetics": {
+    "coat": "copper roan",
+    "markings": "four white socks",
+    "build": "draft",
+    "dominant_genes": ["G_roan", "G_draft_build"],
+    "recessive_genes": ["G_endurance", "G_white_markings"],
+    "notes": "Placeholder genetics — full gene system coming soon."
+  },
+  "abilities": [
+    {
+      "id": "ability_herd_calm",
+      "name": "Herd Calm",
+      "description": "While grazing, nearby horses recover mood faster.",
+      "active_in": ["graze"],
+      "placeholder": true
+    },
+    {
+      "id": "ability_trail_wise",
+      "name": "Trail Wise",
+      "description": "During Travel, warns the herd of incoming obstacles slightly earlier.",
+      "active_in": ["travel"],
+      "placeholder": true
+    },
+    {
+      "id": "ability_deep_sleep",
+      "name": "Deep Sleep",
+      "description": "Heals double HP per sleep tick but wakes up very hungry.",
+      "active_in": ["sleep"],
+      "placeholder": true
+    }
+  ]
+}

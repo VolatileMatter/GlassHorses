@@ -3,13 +3,13 @@
 // Horses must be grazing to breed.
 
 const GrazeModule = (() => {
-  // --- Horse data (shared across modules) ---
-  // In a real app this would come from Supabase / Drive saves
-  let horses = [
-    { id: 1, name: 'Shadowmere', color: '#3a2a1a', hunger: 80, health: 100, mood: 'content', x: 0, y: 0, vx: 0, vy: 0, grazeTimer: 0, eatTimer: 0, state: 'walk', injured: false, age: 3 },
-    { id: 2, name: 'Blaze',      color: '#c0602a', hunger: 55, health: 100, mood: 'happy',   x: 0, y: 0, vx: 0, vy: 0, grazeTimer: 0, eatTimer: 0, state: 'eat',  injured: false, age: 5 },
-    { id: 3, name: 'Snowflake',  color: '#d4d0c8', hunger: 30, health: 90,  mood: 'hungry',  x: 0, y: 0, vx: 0, vy: 0, grazeTimer: 0, eatTimer: 0, state: 'walk', injured: false, age: 2 },
+  // --- Horse data: pulled from HorseManager if available, else fallback ---
+  const FALLBACK_HORSES = [
+    { id: 'f1', name: 'Shadowmere', barn_name: 'Shadowmere', color: '#3a2a1a', hunger: 80, health: 100, mood: 'content', injured: false, age: 3 },
+    { id: 'f2', name: 'Blaze',      barn_name: 'Blaze',      color: '#c0602a', hunger: 55, health: 100, mood: 'happy',   injured: false, age: 5 },
+    { id: 'f3', name: 'Snowflake',  barn_name: 'Snowflake',  color: '#d4d0c8', hunger: 30, health: 90,  mood: 'hungry',  injured: false, age: 2 },
   ];
+  let horses = [];
 
   const PASTURE_W = 760;
   const PASTURE_H = 300;
@@ -36,15 +36,22 @@ const GrazeModule = (() => {
   }
 
   function initHorsePositions() {
-    horses.forEach((h, i) => {
-      h.x = 100 + i * 200;
-      h.y = PASTURE_H * 0.65 + Math.random() * 60;
-      const angle = Math.random() * Math.PI * 2;
-      h.vx = Math.cos(angle) * SPEED;
-      h.vy = Math.sin(angle) * SPEED * 0.3;
-      h.grazeTimer = Math.floor(Math.random() * 120);
-      h.legPhase = Math.random() * Math.PI * 2;
-    });
+    // Pull from HorseManager if available, else use fallback
+    const source = (window.HorseManager && window.HorseManager.getHorses().length > 0)
+      ? window.HorseManager.getHorses()
+      : FALLBACK_HORSES;
+    horses = source.map((h, i) => ({
+      ...h,
+      name: h.barn_name || h.name || `Horse ${i+1}`,
+      x: 80 + i * Math.floor((PASTURE_W - 160) / Math.max(source.length - 1, 1)),
+      y: PASTURE_H * 0.65 + Math.random() * 60,
+      vx: (Math.random() - 0.5) * SPEED * 2,
+      vy: (Math.random() - 0.5) * SPEED * 0.4,
+      grazeTimer: Math.floor(Math.random() * 120),
+      legPhase: Math.random() * Math.PI * 2,
+      state: h.state || 'walk',
+      eatTimer: h.eatTimer || 0,
+    }));
   }
 
   // ---- Update ----

@@ -1,0 +1,8 @@
+{
+  "herd_id": "herd2",
+  "herd_name": "Frostmere Highlands",
+  "description": "A gentler highland herd roaming the cold northern meadows. Smaller horses, big personalities.",
+  "created": "2024-01-01",
+  "drive_folder_id": null,
+  "horses": ["snowflake", "marigold"]
+}

@@ -260,7 +260,7 @@ const SleepModule = (() => {
     ctx.font = '11px monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#88aaff';
-    ctx.fillText(horse.name, bx, by - 52);
+    ctx.fillText(horse.barn_name || horse.name || 'Horse', bx, by - 52);
     if (horse.injured) {
       ctx.fillStyle = '#ff6666';
       ctx.fillText('🩹 Healing...', bx, by - 38);
@@ -320,18 +320,19 @@ const SleepModule = (() => {
     frameCount++;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const horses = (window.GrazeModule && window.GrazeModule.getHorses())
-      ? window.GrazeModule.getHorses()
+    const horses = (window.HorseManager && window.HorseManager.getHorses().length > 0)
+      ? window.HorseManager.getHorses()
       : [
-          { name: 'Shadowmere', color: '#3a2a1a', injured: false, health: 80, hunger: 60, mood: 'content', sleepTicks: 0 },
-          { name: 'Blaze',      color: '#c0602a', injured: true,  health: 40, hunger: 50, mood: 'content', sleepTicks: 0 },
-          { name: 'Snowflake',  color: '#d4d0c8', injured: false, health: 95, hunger: 40, mood: 'content', sleepTicks: 0 },
+          { barn_name: 'Shadowmere', name: 'Shadowmere', color: '#3a2a1a', injured: false, health: 80, hunger: 60, mood: 'content', sleepTicks: 0 },
+          { barn_name: 'Blaze',      name: 'Blaze',      color: '#c0602a', injured: true,  health: 40, hunger: 50, mood: 'content', sleepTicks: 0 },
+          { barn_name: 'Snowflake',  name: 'Snowflake',  color: '#d4d0c8', injured: false, health: 95, hunger: 40, mood: 'content', sleepTicks: 0 },
         ];
 
     // Sleep tick
     const now = Date.now();
     if (lastTickTime && now - lastTickTime >= TICK_INTERVAL_MS) {
       sleepTick(horses);
+      if (window.HorseManager) window.HorseManager.recalcAges();
       lastTickTime = now;
       console.log('🌙 Sleep tick fired — horses healed/aged');
     }

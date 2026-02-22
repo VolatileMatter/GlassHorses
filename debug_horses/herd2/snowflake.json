@@ -1,0 +1,58 @@
+{
+  "id": "horse_snowflake",
+  "barn_name": "Snowflake",
+  "formal_name": "Pale Grace of the Frostmere",
+  "current_herd": "Frostmere Highlands",
+  "birth_herd": "Frostmere Highlands",
+  "birthday": "2023-01-19",
+  "sex": "filly",
+  "age": 2,
+  "age_last_calculated": "2025-01-19",
+  "color": "#d4d0c8",
+  "personality": {
+    "temperament": "gentle",
+    "traits": [
+      "curious",
+      "nervous",
+      "sweet"
+    ],
+    "notes": "Young and still finding her confidence. Easily startled but recovers quickly. Very curious about new objects."
+  },
+  "genetics": {
+    "coat": "gray",
+    "markings": "snowflake dapples",
+    "build": "light",
+    "dominant_genes": [
+      "G_gray",
+      "G_dapple"
+    ],
+    "recessive_genes": [
+      "G_white",
+      "G_light_build"
+    ],
+    "notes": "Placeholder genetics \u2014 full gene system coming soon."
+  },
+  "abilities": [
+    {
+      "id": "ability_quick_learner",
+      "name": "Quick Learner",
+      "description": "Gains bonus XP from all activities. Effects TBD.",
+      "active_in": [
+        "graze",
+        "travel",
+        "sleep"
+      ],
+      "placeholder": true
+    },
+    {
+      "id": "ability_lucky_stumble",
+      "name": "Lucky Stumble",
+      "description": "Once per Travel run, survives one obstacle collision that would otherwise knock her out.",
+      "active_in": [
+        "travel"
+      ],
+      "placeholder": true
+    }
+  ],
+  "herd_id": "herd2"
+}

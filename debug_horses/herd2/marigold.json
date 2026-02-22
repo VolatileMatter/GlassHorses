@@ -1,0 +1,42 @@
+{
+  "id": "horse_marigold",
+  "barn_name": "Marigold",
+  "formal_name": "Golden Bloom of the Hearthfield",
+  "current_herd": "Frostmere Highlands",
+  "birth_herd": "Hearthfield Farm",
+  "birthday": "2020-05-01",
+  "sex": "mare",
+  "age": 5,
+  "age_last_calculated": "2025-05-01",
+  "herd_id": "herd2",
+  "color": "#d4a820",
+  "personality": {
+    "temperament": "nurturing",
+    "traits": ["gentle", "sociable", "stubborn"],
+    "notes": "Gets along with every horse in the stable. Dislikes being separated from the herd. Has strong opinions about which pasture she prefers."
+  },
+  "genetics": {
+    "coat": "palomino",
+    "markings": "star (forehead)",
+    "build": "medium",
+    "dominant_genes": ["G_palomino", "G_medium_build"],
+    "recessive_genes": ["G_cremello", "G_speed"],
+    "notes": "Placeholder genetics — full gene system coming soon."
+  },
+  "abilities": [
+    {
+      "id": "ability_bloom",
+      "name": "In Full Bloom",
+      "description": "Higher breeding success rate when hunger is above 80%.",
+      "active_in": ["graze"],
+      "placeholder": true
+    },
+    {
+      "id": "ability_herd_bond",
+      "name": "Herd Bond",
+      "description": "Recovers additional mood when sleeping next to 2+ herd members.",
+      "active_in": ["sleep"],
+      "placeholder": true
+    }
+  ]
+}

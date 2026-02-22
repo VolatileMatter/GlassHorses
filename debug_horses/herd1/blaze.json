@@ -1,0 +1,42 @@
+{
+  "id": "horse_blaze",
+  "barn_name": "Blaze",
+  "formal_name": "Ember Crown of the Cinderfields",
+  "current_herd": "Ironmoor Stable",
+  "birth_herd": "Cinderfields Ranch",
+  "birthday": "2019-07-04",
+  "sex": "mare",
+  "age": 6,
+  "age_last_calculated": "2025-07-04",
+  "herd_id": "herd1",
+  "color": "#c0602a",
+  "personality": {
+    "temperament": "spirited",
+    "traits": ["energetic", "competitive", "affectionate"],
+    "notes": "First to run, first to eat. Loves racing other horses and sulks when she loses."
+  },
+  "genetics": {
+    "coat": "chestnut",
+    "markings": "blaze (forehead stripe)",
+    "build": "athletic",
+    "dominant_genes": ["G_chestnut", "G_speed"],
+    "recessive_genes": ["G_endurance", "G_palomino"],
+    "notes": "Placeholder genetics — full gene system coming soon."
+  },
+  "abilities": [
+    {
+      "id": "ability_headstart",
+      "name": "Head Start",
+      "description": "Gains a small speed boost at the beginning of each Travel run.",
+      "active_in": ["travel"],
+      "placeholder": true
+    },
+    {
+      "id": "ability_eager_grazer",
+      "name": "Eager Grazer",
+      "description": "Restores hunger 20% faster than other horses while grazing.",
+      "active_in": ["graze"],
+      "placeholder": true
+    }
+  ]
+}

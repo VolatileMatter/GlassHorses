@@ -1,0 +1,8 @@
+{
+  "herd_id": "herd1",
+  "herd_name": "Ironmoor Stable",
+  "description": "A rugged working stable on the edge of the Ashfen. Known for hardy, dependable horses.",
+  "created": "2024-01-01",
+  "drive_folder_id": null,
+  "horses": ["shadowmere", "blaze", "copperkettle"]
+}

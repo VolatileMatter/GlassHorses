@@ -61,15 +61,16 @@ const TravelGame = (() => {
     }
 
     draw(ctx) {
-      const x = this.x;
-      const y = this.y;
       const alpha = this.dead ? Math.max(0, 1 - this.deathTimer / 30) : 1;
       ctx.save();
       ctx.globalAlpha = alpha;
 
+      // *** FIX: translate to world position first ***
+      ctx.translate(this.x, this.y);
+
       if (this.dead) {
-        // Tumbling effect
-        ctx.translate(x + HORSE_WIDTH / 2, y + HORSE_HEIGHT / 2);
+        // Tumbling: rotate around horse centre
+        ctx.translate(HORSE_WIDTH / 2, HORSE_HEIGHT / 2);
         ctx.rotate(this.deathTimer * 0.15);
         ctx.translate(-HORSE_WIDTH / 2, -HORSE_HEIGHT / 2);
       }
@@ -266,10 +267,21 @@ const TravelGame = (() => {
     ctx.font = 'bold 16px monospace';
     ctx.fillText(`Score: ${Math.floor(score)}`, 12, 21);
     ctx.fillText(`Speed: ${gameSpeed.toFixed(1)}`, 130, 21);
-
     const alive = horses.filter(h => !h.dead).length;
     ctx.fillText(`Horses: ${alive}/${horses.length}`, 260, 21);
-    ctx.fillText('SPACE / TAP = Jump', canvas.width - 200, 21);
+    const herdName = window.HorseManager?.getActiveHerd()?.meta?.herd_name || '';
+    if (herdName) {
+      ctx.fillStyle = '#aaffcc';
+      ctx.font = '12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(herdName, canvas.width / 2, 20);
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 16px monospace';
+    }
+    ctx.textAlign = 'right';
+    ctx.fillText('SPACE / TAP = Jump', canvas.width - 10, 21);
+    ctx.textAlign = 'left';
   }
 
   // --- Game Over Screen ---
@@ -363,18 +375,20 @@ const TravelGame = (() => {
     rocks = [];
     nextRockIn = 100;
 
-    // Build horses from GrazeModule or fallback
-    const playerHorses = (window.GrazeModule && window.GrazeModule.getHorses())
-      ? window.GrazeModule.getHorses()
-      : [
-          { name: 'Shadowmere', color: '#3a2a1a' },
-          { name: 'Blaze',      color: '#c0602a' },
-          { name: 'Snowflake',  color: '#d4d0c8' },
-        ];
+    // Build horses from HorseManager, then GrazeModule, then fallback
+    const source = (window.HorseManager && window.HorseManager.getHorses().length > 0)
+      ? window.HorseManager.getHorses()
+      : (window.GrazeModule && window.GrazeModule.getHorses().length > 0)
+        ? window.GrazeModule.getHorses()
+        : [
+            { barn_name: 'Shadowmere', color: '#3a2a1a' },
+            { barn_name: 'Blaze',      color: '#c0602a' },
+            { barn_name: 'Snowflake',  color: '#d4d0c8' },
+          ];
 
     const colors = ['#8B5E3C', '#c0602a', '#3a2a1a', '#d4d0c8', '#7a6040'];
-    horses = playerHorses.map((h, i) => new Horse(
-      h.name || `Horse ${i + 1}`,
+    horses = source.map((h, i) => new Horse(
+      h.barn_name || h.name || `Horse ${i + 1}`,
       60 + i * 15,
       h.color || colors[i % colors.length]
     ));
