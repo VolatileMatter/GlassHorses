@@ -2,10 +2,10 @@
 // Core UI state and helper functions
 
 // ==================== STATUS COLOUR ====================
-window.statusColor = function(h) {
-  if (!h) return '#2ecc71';
-  if (h.injured || (h.health && h.health < 30)) return '#e03030';
-  if ((h.health && h.health < 70) || (h.hunger && h.hunger < 30)) return '#d4a017';
+window.statusColor = function(horse) {
+  if (!horse) return '#2ecc71';
+  if (horse.injured || (horse.health && horse.health < 30)) return '#e03030';
+  if ((horse.health && horse.health < 70) || (horse.hunger && horse.hunger < 30)) return '#d4a017';
   return '#2ecc71';
 };
 

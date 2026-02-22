@@ -15,9 +15,18 @@ window.closeCreateHerdModal = function() {
 
 window.submitCreateHerd = function() {
   const name = document.getElementById('new-herd-name').value.trim();
-  if (!name) { document.getElementById('new-herd-name').focus(); return; }
+  if (!name) { 
+    document.getElementById('new-herd-name').focus(); 
+    return; 
+  }
+  
   const desc = document.getElementById('new-herd-desc').value.trim();
-  if (!window.HorseManager) { window.closeCreateHerdModal(); return; }
+  
+  if (!window.HorseManager) { 
+    window.closeCreateHerdModal(); 
+    return; 
+  }
+  
   const id = window.HorseManager.createHerd(name, desc);
   window.HorseManager.setActiveHerd(id);
   window.closeCreateHerdModal();
@@ -25,6 +34,7 @@ window.submitCreateHerd = function() {
   window.refreshDebugHerdSwitcher?.();
   window.renderDebugRoster?.();
 };
+
 // Mark this script as loaded
-window.scriptsLoaded.uiMode = true;
+window.scriptsLoaded.uiModal = true;
 window.checkAllScriptsLoaded();

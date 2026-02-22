@@ -16,29 +16,35 @@ window.renderStatusOverlay = function() {
     return;
   }
   
+  const activeHerd = window.HorseManager.getActiveHerd();
   const horses = window.HorseManager.getHorses();
-  const herd = window.HorseManager.getActiveHerd();
-  const herdName = herd ? herd.meta.herd_name : 'Herd';
+  
+  if (!activeHerd) {
+    overlay.innerHTML = '<span id="status-panel-title">Status</span><div style="color:#222;font-size:0.8em;padding-top:20px">No active herd selected.</div>';
+    return;
+  }
+  
+  const herdName = activeHerd.meta.herd_name || 'Herd';
 
   if (!horses || horses.length === 0) {
-    overlay.innerHTML = '<span id="status-panel-title">Status</span><div style="color:#222;font-size:0.8em;padding-top:20px">No horses in this herd.</div>';
+    overlay.innerHTML = `<span id="status-panel-title">${herdName} — Status</span><div style="color:#222;font-size:0.8em;padding-top:20px">No horses in this herd.</div>`;
     return;
   }
 
   try {
     overlay.innerHTML = `<span id="status-panel-title">${herdName} — Status</span>` +
-      horses.map(h => {
-        const sc = window.statusColor(h);
+      horses.map(horse => {
+        const sc = window.statusColor(horse);
         return `<div class="status-horse-row">
-          <div class="status-swatch" style="background:${h.color || '#8B5E3C'}"></div>
+          <div class="status-swatch" style="background:${horse.color || '#8B5E3C'}"></div>
           <div style="flex:1;min-width:0">
-            <div class="status-name">${h.barn_name || h.name || 'Unnamed'}</div>
-            <div class="status-formal">${h.formal_name || ''}</div>
+            <div class="status-name">${horse.barn_name || horse.name || 'Unnamed'}</div>
+            <div class="status-formal">${horse.formal_name || ''}</div>
           </div>
           <div class="status-meta">
-            <span>${h.sex || '?'}, age ${h.age || '?'}</span>
-            <span>Health ${Math.floor(h.health || 100)}%</span>
-            <span>Hunger ${Math.floor(h.hunger || 75)}%</span>
+            <span>${horse.sex || '?'}, age ${horse.age || '?'}</span>
+            <span>Health ${Math.floor(horse.health || 100)}%</span>
+            <span>Hunger ${Math.floor(horse.hunger || 75)}%</span>
           </div>
           <svg class="status-indicator" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
             <rect width="10" height="10" fill="${sc}"/>
@@ -50,6 +56,7 @@ window.renderStatusOverlay = function() {
     overlay.innerHTML = '<span id="status-panel-title">Status</span><div style="color:#e03030;font-size:0.8em;padding-top:20px">Error loading status data.</div>';
   }
 };
+
 // Mark this script as loaded
-window.scriptsLoaded.uiMode = true;
+window.scriptsLoaded.uiStatus = true;
 window.checkAllScriptsLoaded();
