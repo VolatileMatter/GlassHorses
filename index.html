@@ -92,7 +92,17 @@
   <script src="config.js"></script>
   <script src="horses.js"></script>
   <script src="graze.js"></script>
-  <script src="travel.js"></script>
+
+  <!-- Travel mode — modular sub-files, then orchestrator -->
+  <script src="travel/travel-constants.js"></script>
+  <script src="travel/travel-background.js"></script>
+  <script src="travel/travel-horse.js"></script>
+  <script src="travel/travel-obstacles.js"></script>
+  <script src="travel/travel-apples.js"></script>
+  <script src="travel/travel-checkpoints.js"></script>
+  <script src="travel/travel-hud.js"></script>
+  <script src="travel/travel.js"></script>
+
   <script src="sleep.js"></script>
   <script src="status.js"></script>
   <script src="auth.js"></script>
@@ -110,34 +120,24 @@
   <script src="app.js"></script>
 
   <script>
-  // Simple initialization
   function initializeApp() {
-    console.log('Initializing app...');
-    
-    if (!window.GrazeModule || !window.HorseManager || !window.StatusModule) {
+    if (!window.GrazeModule || !window.HorseManager || !window.StatusModule || !window.TravelGame) {
       setTimeout(initializeApp, 100);
       return;
     }
-    
     const canvasWrap = document.getElementById('canvas-wrap');
-    if (!canvasWrap) {
-      setTimeout(initializeApp, 100);
-      return;
-    }
+    if (!canvasWrap) { setTimeout(initializeApp, 100); return; }
     
     if (window.HorseManager && window.onHerdChange) {
       window.HorseManager.onChange(window.onHerdChange);
     }
-    
     if (window.HorseManager && !window.HorseManager.getHorses().length) {
       window.HorseManager.loadDebugHerds();
     }
-    
     if (window.initializeModeUI) {
       window.initializeModeUI();
     }
-    
-    console.log('App initialized');
+    console.log('✅ App initialized');
   }
 
   if (document.readyState === 'loading') {
