@@ -483,9 +483,13 @@
     window.currentMode = null;
 
     function switchMode(mode) {
+      console.log('Switching to mode:', mode, 'current:', currentMode);
+      
       // If clicking status while already in status mode, close it
       if (mode === 'status' && currentMode === 'status') {
-        // Hide status overlay and return to graze
+        console.log('Closing status overlay');
+        
+        // Hide status overlay
         document.getElementById('status-overlay').classList.remove('visible');
         
         // Update button text
@@ -507,10 +511,22 @@
         return;
       }
       
-      // Unmount active canvas modes
-      if (currentMode === 'graze'  && window.GrazeModule)  window.GrazeModule.unmount();
-      if (currentMode === 'travel' && window.TravelGame)   window.TravelGame.unmount();
-      if (currentMode === 'sleep'  && window.SleepModule)  window.SleepModule.unmount();
+      // If switching to a different mode from status, handle specially
+      if (currentMode === 'status' && mode !== 'status') {
+        // Just hide the overlay, no need to unmount anything else
+        document.getElementById('status-overlay').classList.remove('visible');
+        
+        // Update status button text
+        const statusBtn = document.getElementById('btn-status');
+        if (statusBtn) statusBtn.textContent = 'View Status';
+      }
+      
+      // Unmount current canvas mode if it exists and we're not coming from status
+      if (currentMode !== 'status') {
+        if (currentMode === 'graze' && window.GrazeModule) window.GrazeModule.unmount();
+        if (currentMode === 'travel' && window.TravelGame) window.TravelGame.unmount();
+        if (currentMode === 'sleep' && window.SleepModule) window.SleepModule.unmount();
+      }
 
       currentMode = mode;
       window.currentMode = mode;
@@ -524,6 +540,7 @@
       const overlay = document.getElementById('status-overlay');
 
       if (mode === 'status') {
+        console.log('Showing status overlay');
         overlay.classList.add('visible');
         
         // Update button text
@@ -544,9 +561,18 @@
       overlay.classList.remove('visible');
 
       // Mount canvas mode
-      if (mode === 'graze'  && window.GrazeModule)  window.GrazeModule.mount(canvasWrap);
-      if (mode === 'travel' && window.TravelGame)   window.TravelGame.mount(canvasWrap);
-      if (mode === 'sleep'  && window.SleepModule)  window.SleepModule.mount(canvasWrap);
+      if (mode === 'graze' && window.GrazeModule) {
+        console.log('Mounting graze mode');
+        window.GrazeModule.mount(canvasWrap);
+      }
+      if (mode === 'travel' && window.TravelGame) {
+        console.log('Mounting travel mode');
+        window.TravelGame.mount(canvasWrap);
+      }
+      if (mode === 'sleep' && window.SleepModule) {
+        console.log('Mounting sleep mode');
+        window.SleepModule.mount(canvasWrap);
+      }
     }
     window.switchMode = switchMode;
   </script>
