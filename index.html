@@ -69,8 +69,13 @@
           <button id="new-herd-tab" onclick="window.openCreateHerdModal()" style="display:none">+ New</button>
         </div>
 
+        <!-- Canvas Area - Where all game modes render -->
+        <div id="canvas-wrap" style="min-height:400px;height:400px;position:relative;background:rgba(0,0,0,0.3);border-radius:12px;margin:10px 0;border:1px solid rgba(0,255,255,0.2);overflow:hidden;">
+          <!-- Canvas modules mount here - initially empty -->
+        </div>
+
         <!-- Action Bar -->
-        <div id="action-bar">
+        <div id="action-bar" style="display:flex;gap:8px;justify-content:center;margin-top:10px;">
           <button id="btn-graze"  class="action-btn" onclick="window.switchMode('graze')">Graze</button>
           <button id="btn-status" class="action-btn" onclick="window.switchMode('status')">View Status</button>
           <button id="btn-travel" class="action-btn" onclick="window.switchMode('travel')">Travel</button>
@@ -120,74 +125,47 @@
   <script src="ui/ui-core.js"></script>
   <script src="ui/ui-mode.js"></script>
   <script src="ui/ui-herds.js"></script>
-  <script src="ui/ui-status.js"></script>
   <script src="ui/ui-debug.js"></script>
   <script src="ui/ui-modal.js"></script>
 
   <script>
-  // Enhanced initialization with status overlay check
-  function ensureStatusOverlay() {
-    let overlay = document.getElementById('status-overlay');
-    if (!overlay) {
-      console.log('⚠️ Status overlay missing - creating dynamically');
-      const canvasWrap = document.getElementById('canvas-wrap');
-      if (canvasWrap) {
-        overlay = document.createElement('div');
-        overlay.id = 'status-overlay';
-        overlay.style.cssText = 'display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(20,20,30,0.95);backdrop-filter:blur(8px);color:#e0e0e0;z-index:1000;overflow-y:auto;padding:20px;border-radius:12px;border:2px solid rgba(0,255,255,0.3);box-shadow:inset 0 0 30px rgba(138,43,226,0.3);font-family:"Segoe UI",sans-serif;';
-        overlay.innerHTML = `
-          <div style="font-size:1.2em; font-weight:bold; color:#00ffff; margin-bottom:15px; padding-bottom:5px; border-bottom:2px solid rgba(255,0,255,0.3);">
-            Status Panel
-          </div>
-          <div style="color:#aaa; text-align:center; padding:20px;">
-            Loading horse data...
-          </div>
-        `;
-        canvasWrap.appendChild(overlay);
-        console.log('✅ Status overlay created successfully');
-      } else {
-        console.error('❌ Cannot create overlay - canvas-wrap not found');
-      }
-    }
-    return overlay;
-  }
-
+  // Simple initialization - no overlay code
   function initializeApp() {
-  console.log('Initializing app...');
-  
-  // Check if all required modules are loaded
-  if (!window.GrazeModule || !window.HorseManager || !window.StatusModule) {
-    console.log('Waiting for modules...');
-    setTimeout(initializeApp, 100);
-    return;
+    console.log('Initializing app...');
+    
+    // Check if all required modules are loaded
+    if (!window.GrazeModule || !window.HorseManager || !window.StatusModule) {
+      console.log('Waiting for modules...');
+      setTimeout(initializeApp, 100);
+      return;
+    }
+    
+    const canvasWrap = document.getElementById('canvas-wrap');
+    if (!canvasWrap) {
+      console.log('Waiting for canvas...');
+      setTimeout(initializeApp, 100);
+      return;
+    }
+    
+    console.log('All systems ready, starting app');
+    
+    // Set up HorseManager change handler
+    if (window.HorseManager && window.onHerdChange) {
+      window.HorseManager.onChange(window.onHerdChange);
+    }
+    
+    // Load debug herds (already does this by default, but ensure it's loaded)
+    if (window.HorseManager && !window.HorseManager.getHorses().length) {
+      window.HorseManager.loadDebugHerds();
+    }
+    
+    // Initialize the mode UI (this will set up graze mode and hide graze button)
+    if (window.initializeModeUI) {
+      window.initializeModeUI();
+    }
+    
+    console.log('App initialized successfully');
   }
-  
-  const canvasWrap = document.getElementById('canvas-wrap');
-  if (!canvasWrap) {
-    console.log('Waiting for canvas...');
-    setTimeout(initializeApp, 100);
-    return;
-  }
-  
-  console.log('All systems ready, starting app');
-  
-  // Set up HorseManager change handler
-  if (window.HorseManager && window.onHerdChange) {
-    window.HorseManager.onChange(window.onHerdChange);
-  }
-  
-  // Load debug herds (already does this by default, but ensure it's loaded)
-  if (window.HorseManager && !window.HorseManager.getHorses().length) {
-    window.HorseManager.loadDebugHerds();
-  }
-  
-  // Initialize the mode UI (this will set up graze mode and hide graze button)
-  if (window.initializeModeUI) {
-    window.initializeModeUI();
-  }
-  
-  console.log('App initialized successfully');
-}
 
   // Start initialization when DOM is ready
   if (document.readyState === 'loading') {
