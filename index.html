@@ -69,21 +69,6 @@
           <button id="new-herd-tab" onclick="window.openCreateHerdModal()" style="display:none">+ New</button>
         </div>
 
-        <!-- Canvas / Status area - FIXED: Status overlay now properly defined -->
-        <div id="canvas-wrap" style="min-height:360px;position:relative;">
-          <!-- Canvas modules mount here -->
-          
-          <!-- Status overlay - COMPLETELY FIXED with proper styling and structure -->
-          <div id="status-overlay" style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(20, 20, 30, 0.95); backdrop-filter: blur(8px); color: #e0e0e0; z-index: 1000; overflow-y: auto; padding: 20px; border-radius: 12px; border: 2px solid rgba(0, 255, 255, 0.3); box-shadow: inset 0 0 30px rgba(138, 43, 226, 0.3); font-family: 'Segoe UI', sans-serif;">
-            <div style="font-size:1.2em; font-weight:bold; color:#00ffff; margin-bottom:15px; padding-bottom:5px; border-bottom:2px solid rgba(255,0,255,0.3);">
-              Status Panel
-            </div>
-            <div style="color:#aaa; text-align:center; padding:20px;">
-              Loading horse data...
-            </div>
-          </div>
-        </div>
-
         <!-- Action Bar -->
         <div id="action-bar">
           <button id="btn-graze"  class="action-btn" onclick="window.switchMode('graze')">Graze</button>
@@ -125,6 +110,7 @@
   <script src="graze.js"></script>
   <script src="travel.js"></script>
   <script src="sleep.js"></script>
+  <script src="status.js"></script>
   <script src="auth.js"></script>
   <script src="drive.js"></script>
   <script src="gallery.js"></script>
@@ -167,64 +153,41 @@
   }
 
   function initializeApp() {
-    console.log('Initializing app...');
-    
-    // Ensure status overlay exists before proceeding
-    ensureStatusOverlay();
-    
-    // Check if all required modules are loaded
-    if (!window.GrazeModule || !window.HorseManager) {
-      console.log('Waiting for modules...');
-      setTimeout(initializeApp, 100);
-      return;
-    }
-    
-    const canvasWrap = document.getElementById('canvas-wrap');
-    if (!canvasWrap) {
-      console.log('Waiting for canvas...');
-      setTimeout(initializeApp, 100);
-      return;
-    }
-    
-    console.log('All systems ready, starting app');
-    
-    // Set up HorseManager change handler
-    if (window.HorseManager && window.onHerdChange) {
-      window.HorseManager.onChange(window.onHerdChange);
-    }
-    
-    // Load debug herds (already does this by default, but ensure it's loaded)
-    if (window.HorseManager && !window.HorseManager.getHorses().length) {
-      window.HorseManager.loadDebugHerds();
-    }
-    
-    // Small delay to ensure everything is ready
-    setTimeout(() => {
-      // Mount graze mode
-      if (window.GrazeModule) {
-        console.log('Mounting graze module');
-        window.GrazeModule.mount(canvasWrap);
-        window.currentMode = 'graze';
-        
-        // Set graze button as active
-        document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active'));
-        const grazeBtn = document.getElementById('btn-graze');
-        if (grazeBtn) grazeBtn.classList.add('active');
-
-        // === FIX: Initialize the mode UI to hide the graze button ===
-      if (window.initializeModeUI) {
-        window.initializeModeUI();
-      }
-        
-        // Update UI
-        if (window.refreshHerdTabs) setTimeout(() => window.refreshHerdTabs(), 100);
-        if (window.refreshDebugHerdSwitcher) setTimeout(() => window.refreshDebugHerdSwitcher(), 100);
-        if (window.renderDebugRoster) setTimeout(() => window.renderDebugRoster(), 100);
-        
-        console.log('App initialized successfully');
-      }
-    }, 200);
+  console.log('Initializing app...');
+  
+  // Check if all required modules are loaded
+  if (!window.GrazeModule || !window.HorseManager || !window.StatusModule) {
+    console.log('Waiting for modules...');
+    setTimeout(initializeApp, 100);
+    return;
   }
+  
+  const canvasWrap = document.getElementById('canvas-wrap');
+  if (!canvasWrap) {
+    console.log('Waiting for canvas...');
+    setTimeout(initializeApp, 100);
+    return;
+  }
+  
+  console.log('All systems ready, starting app');
+  
+  // Set up HorseManager change handler
+  if (window.HorseManager && window.onHerdChange) {
+    window.HorseManager.onChange(window.onHerdChange);
+  }
+  
+  // Load debug herds (already does this by default, but ensure it's loaded)
+  if (window.HorseManager && !window.HorseManager.getHorses().length) {
+    window.HorseManager.loadDebugHerds();
+  }
+  
+  // Initialize the mode UI (this will set up graze mode and hide graze button)
+  if (window.initializeModeUI) {
+    window.initializeModeUI();
+  }
+  
+  console.log('App initialized successfully');
+}
 
   // Start initialization when DOM is ready
   if (document.readyState === 'loading') {

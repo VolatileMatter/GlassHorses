@@ -16,7 +16,6 @@ function initDOMElements() {
   console.log('Looking for DOM elements...');
   
   const elements = {
-    overlay: document.getElementById('status-overlay'),
     canvasWrap: document.getElementById('canvas-wrap'),
     statusBtn: document.getElementById('btn-status'),
     grazeBtn: document.getElementById('btn-graze'),
@@ -27,7 +26,6 @@ function initDOMElements() {
   
   // Log what we found
   console.log('Found elements:', {
-    overlay: !!elements.overlay,
     canvasWrap: !!elements.canvasWrap,
     statusBtn: !!elements.statusBtn,
     grazeBtn: !!elements.grazeBtn,
@@ -37,7 +35,7 @@ function initDOMElements() {
   });
   
   // Check if all required elements exist
-  if (elements.overlay && elements.canvasWrap && elements.statusBtn && elements.grazeBtn && elements.actionBar) {
+  if (elements.canvasWrap && elements.statusBtn && elements.grazeBtn && elements.actionBar) {
     domElements = elements;
     domReady = true;
     console.log('UI DOM elements ready');
@@ -88,12 +86,10 @@ window.switchMode = function(mode) {
     }
     
     // Handle leaving current mode
-    if (currentMode === 'status') {
-      // Leaving status mode
-      elements.overlay.classList.remove('visible');
-    } else if (currentMode) {
-      // Leaving a canvas mode (graze, travel, sleep)
+    if (currentMode) {
+      // Unmount the current module
       if (currentMode === 'graze' && window.GrazeModule) window.GrazeModule.unmount();
+      if (currentMode === 'status' && window.StatusModule) window.StatusModule.unmount();
       if (currentMode === 'travel' && window.TravelGame) window.TravelGame.unmount();
       if (currentMode === 'sleep' && window.SleepModule) window.SleepModule.unmount();
     }
@@ -111,31 +107,22 @@ window.switchMode = function(mode) {
     if (mode !== 'travel') elements.travelBtn.style.display = 'inline-block';
     if (mode !== 'sleep') elements.sleepBtn.style.display = 'inline-block';
 
-    // Handle entering new mode
-    if (mode === 'status') {
-      console.log('Showing status overlay');
-      elements.overlay.classList.add('visible');
-      
-      // Render status data
-      if (window.renderStatusOverlay) {
-        setTimeout(() => window.renderStatusOverlay(), 50);
-      }
-    } else {
-      // Entering a canvas mode
-      elements.overlay.classList.remove('visible');
-      
-      if (mode === 'graze' && window.GrazeModule) {
-        console.log('Mounting graze mode');
-        window.GrazeModule.mount(elements.canvasWrap);
-      }
-      if (mode === 'travel' && window.TravelGame) {
-        console.log('Mounting travel mode');
-        window.TravelGame.mount(elements.canvasWrap);
-      }
-      if (mode === 'sleep' && window.SleepModule) {
-        console.log('Mounting sleep mode');
-        window.SleepModule.mount(elements.canvasWrap);
-      }
+    // Enter new mode
+    if (mode === 'graze' && window.GrazeModule) {
+      console.log('Mounting graze mode');
+      window.GrazeModule.mount(elements.canvasWrap);
+    }
+    if (mode === 'status' && window.StatusModule) {
+      console.log('Mounting status mode');
+      window.StatusModule.mount(elements.canvasWrap);
+    }
+    if (mode === 'travel' && window.TravelGame) {
+      console.log('Mounting travel mode');
+      window.TravelGame.mount(elements.canvasWrap);
+    }
+    if (mode === 'sleep' && window.SleepModule) {
+      console.log('Mounting sleep mode');
+      window.SleepModule.mount(elements.canvasWrap);
     }
   });
 };
