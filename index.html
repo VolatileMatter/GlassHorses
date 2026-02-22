@@ -84,6 +84,7 @@
     #canvas-wrap {
       position: relative;
       background: #000;
+      min-height: 360px;
     }
     #canvas-wrap canvas {
       display: block; width: 100%; border-radius: 0;
@@ -112,6 +113,7 @@
       background: #000;
       overflow-y: auto;
       padding: 20px;
+      z-index: 10;
     }
     #status-overlay.visible { display: block; }
     .status-horse-row {
@@ -259,7 +261,6 @@
     #drive-debug { display: none; padding: 10px 20px; font-size: 0.72em; color: #333; background: #050505; border-top: 1px solid #111; }
     .drive-success { color: #2ecc71; padding: 10px 0; font-size: 0.82em; }
     .drive-error   { color: #e03030; padding: 10px 0; font-size: 0.82em; }
-    #status-btn { display: none; } /* shown only when herds loaded */
 
     /* ---- STATUS PANEL CONTENT ---- */
     #status-panel-title {
@@ -397,6 +398,7 @@
     function renderStatusOverlay() {
       const overlay = document.getElementById('status-overlay');
       if (!overlay) return;
+      
       const horses = window.HorseManager ? window.HorseManager.getHorses() : [];
       const herd = window.HorseManager ? window.HorseManager.getActiveHerd() : null;
       const herdName = herd ? herd.meta.herd_name : 'Herd';
@@ -412,13 +414,13 @@
           return `<div class="status-horse-row">
             <div class="status-swatch" style="background:${h.color}"></div>
             <div style="flex:1;min-width:0">
-              <div class="status-name">${h.barn_name || h.name}</div>
+              <div class="status-name">${h.barn_name || h.name || 'Unnamed'}</div>
               <div class="status-formal">${h.formal_name || ''}</div>
             </div>
             <div class="status-meta">
-              <span>${h.sex}, age ${h.age}</span>
-              <span>Health ${Math.floor(h.health)}%</span>
-              <span>Hunger ${Math.floor(h.hunger)}%</span>
+              <span>${h.sex || '?'}, age ${h.age || '?'}</span>
+              <span>Health ${Math.floor(h.health || 100)}%</span>
+              <span>Hunger ${Math.floor(h.hunger || 75)}%</span>
             </div>
             <svg class="status-indicator" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
               <rect width="10" height="10" fill="${sc}"/>
@@ -426,13 +428,13 @@
           </div>`;
         }).join('');
     }
+    window.renderStatusOverlay = renderStatusOverlay;
 
     /* ==================== DEBUG ROSTER ==================== */
     function renderDebugRoster() {
       const grid = document.getElementById('debug-horse-grid');
       if (!grid || !window.HorseManager) return;
       const horses = window.HorseManager.getHorses();
-      const modeLabel = { graze: 'graze', travel: 'travel', sleep: 'sleep' };
 
       if (horses.length === 0) {
         grid.innerHTML = '<div class="empty-herd-msg">No horses in this herd.</div>';
@@ -481,6 +483,30 @@
     window.currentMode = null;
 
     function switchMode(mode) {
+      // If clicking status while already in status mode, close it
+      if (mode === 'status' && currentMode === 'status') {
+        // Hide status overlay and return to graze
+        document.getElementById('status-overlay').classList.remove('visible');
+        
+        // Update button text
+        const statusBtn = document.getElementById('btn-status');
+        if (statusBtn) statusBtn.textContent = 'View Status';
+        
+        // Reactivate graze mode
+        if (window.GrazeModule) {
+          window.GrazeModule.mount(document.getElementById('canvas-wrap'));
+        }
+        
+        currentMode = 'graze';
+        window.currentMode = 'graze';
+        
+        // Update active button states
+        document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('btn-graze')?.classList.add('active');
+        
+        return;
+      }
+      
       // Unmount active canvas modes
       if (currentMode === 'graze'  && window.GrazeModule)  window.GrazeModule.unmount();
       if (currentMode === 'travel' && window.TravelGame)   window.TravelGame.unmount();
@@ -499,9 +525,20 @@
 
       if (mode === 'status') {
         overlay.classList.add('visible');
+        
+        // Update button text
+        const statusBtn = document.getElementById('btn-status');
+        if (statusBtn) statusBtn.textContent = 'Close';
+        
+        // Render status data
         renderStatusOverlay();
+        
         return;
       }
+
+      // Reset status button text when switching to other modes
+      const statusBtn = document.getElementById('btn-status');
+      if (statusBtn) statusBtn.textContent = 'View Status';
 
       // Hide status overlay for canvas modes
       overlay.classList.remove('visible');
@@ -577,6 +614,7 @@
 
         <!-- Action Bar -->
         <div id="action-bar">
+          <button id="btn-graze"  class="action-btn" onclick="switchMode('graze')">Graze</button>
           <button id="btn-status" class="action-btn" onclick="switchMode('status')">View Status</button>
           <button id="btn-travel" class="action-btn" onclick="switchMode('travel')">Travel</button>
           <button id="btn-sleep"  class="action-btn" onclick="switchMode('sleep')">Sleep</button>
@@ -620,12 +658,16 @@
   <script>
     document.addEventListener('allScriptsLoaded', () => {
       if (window.HorseManager) window.HorseManager.onChange(onHerdChange);
-      // Default: graze runs passively, status shown initially
+      // Default: graze runs passively
       setTimeout(() => {
-        // Boot graze silently (horses are always grazing when not in another mode)
+        // Boot graze silently
         window.GrazeModule && window.GrazeModule.mount(document.getElementById('canvas-wrap'));
         currentMode = 'graze';
         window.currentMode = 'graze';
+        
+        // Set graze button as active
+        document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('btn-graze')?.classList.add('active');
       }, 150);
     });
     if (window.appLoaded) {
@@ -633,6 +675,10 @@
         window.GrazeModule && window.GrazeModule.mount(document.getElementById('canvas-wrap'));
         currentMode = 'graze';
         window.currentMode = 'graze';
+        
+        // Set graze button as active
+        document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('btn-graze')?.classList.add('active');
       }, 200);
     }
   </script>
