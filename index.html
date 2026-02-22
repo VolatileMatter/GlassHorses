@@ -210,6 +210,11 @@
         document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active'));
         const grazeBtn = document.getElementById('btn-graze');
         if (grazeBtn) grazeBtn.classList.add('active');
+
+        // === FIX: Initialize the mode UI to hide the graze button ===
+      if (window.initializeModeUI) {
+        window.initializeModeUI();
+      }
         
         // Update UI
         if (window.refreshHerdTabs) setTimeout(() => window.refreshHerdTabs(), 100);
