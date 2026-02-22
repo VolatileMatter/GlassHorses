@@ -81,43 +81,24 @@ window.switchMode = function(mode) {
   ensureDOM(() => {
     const elements = domElements;
     
-    // If clicking status while already in status mode, close it
-    if (mode === 'status' && currentMode === 'status') {
-      console.log('Closing status overlay');
-      
-      // Hide status overlay
-      elements.overlay.classList.remove('visible');
-      
-      // Show all buttons
-      showAllButtons();
-      
-      // Hide the status button (since we're leaving status mode)
-      elements.statusBtn.style.display = 'none';
-      
-      // Reactivate graze mode
-      if (window.GrazeModule) {
-        window.GrazeModule.mount(elements.canvasWrap);
-      }
-      
-      currentMode = 'graze';
-      window.currentMode = 'graze';
-      
+    // If clicking the same mode button, do nothing
+    if (mode === currentMode) {
+      console.log('Already in this mode, ignoring');
       return;
     }
     
-    // If switching to a different mode from status
-    if (currentMode === 'status' && mode !== 'status') {
+    // Handle leaving current mode
+    if (currentMode === 'status') {
+      // Leaving status mode
       elements.overlay.classList.remove('visible');
-      showAllButtons();
-    }
-    
-    // Unmount current canvas mode
-    if (currentMode !== 'status' && currentMode) {
+    } else if (currentMode) {
+      // Leaving a canvas mode (graze, travel, sleep)
       if (currentMode === 'graze' && window.GrazeModule) window.GrazeModule.unmount();
       if (currentMode === 'travel' && window.TravelGame) window.TravelGame.unmount();
       if (currentMode === 'sleep' && window.SleepModule) window.SleepModule.unmount();
     }
 
+    // Set new mode
     currentMode = mode;
     window.currentMode = mode;
 
@@ -130,6 +111,7 @@ window.switchMode = function(mode) {
     if (mode !== 'travel') elements.travelBtn.style.display = 'inline-block';
     if (mode !== 'sleep') elements.sleepBtn.style.display = 'inline-block';
 
+    // Handle entering new mode
     if (mode === 'status') {
       console.log('Showing status overlay');
       elements.overlay.classList.add('visible');
@@ -138,25 +120,22 @@ window.switchMode = function(mode) {
       if (window.renderStatusOverlay) {
         setTimeout(() => window.renderStatusOverlay(), 50);
       }
+    } else {
+      // Entering a canvas mode
+      elements.overlay.classList.remove('visible');
       
-      return;
-    }
-
-    // Hide status overlay
-    elements.overlay.classList.remove('visible');
-
-    // Mount new canvas mode
-    if (mode === 'graze' && window.GrazeModule) {
-      console.log('Mounting graze mode');
-      window.GrazeModule.mount(elements.canvasWrap);
-    }
-    if (mode === 'travel' && window.TravelGame) {
-      console.log('Mounting travel mode');
-      window.TravelGame.mount(elements.canvasWrap);
-    }
-    if (mode === 'sleep' && window.SleepModule) {
-      console.log('Mounting sleep mode');
-      window.SleepModule.mount(elements.canvasWrap);
+      if (mode === 'graze' && window.GrazeModule) {
+        console.log('Mounting graze mode');
+        window.GrazeModule.mount(elements.canvasWrap);
+      }
+      if (mode === 'travel' && window.TravelGame) {
+        console.log('Mounting travel mode');
+        window.TravelGame.mount(elements.canvasWrap);
+      }
+      if (mode === 'sleep' && window.SleepModule) {
+        console.log('Mounting sleep mode');
+        window.SleepModule.mount(elements.canvasWrap);
+      }
     }
   });
 };
