@@ -13,8 +13,6 @@ let domReady = false;
 function initDOMElements() {
   if (domReady) return true;
   
-  console.log('Looking for DOM elements...');
-  
   const elements = {
     canvasWrap: document.getElementById('canvas-wrap'),
     statusBtn: document.getElementById('btn-status'),
@@ -23,16 +21,6 @@ function initDOMElements() {
     sleepBtn: document.getElementById('btn-sleep'),
     actionBar: document.getElementById('action-bar')
   };
-  
-  // Log what we found
-  console.log('Found elements:', {
-    canvasWrap: !!elements.canvasWrap,
-    statusBtn: !!elements.statusBtn,
-    grazeBtn: !!elements.grazeBtn,
-    travelBtn: !!elements.travelBtn,
-    sleepBtn: !!elements.sleepBtn,
-    actionBar: !!elements.actionBar
-  });
   
   // Check if all required elements exist
   if (elements.canvasWrap && elements.statusBtn && elements.grazeBtn && elements.actionBar) {
@@ -50,7 +38,6 @@ function ensureDOM(callback) {
   if (initDOMElements()) {
     callback();
   } else {
-    console.log('Waiting for DOM elements...');
     setTimeout(() => ensureDOM(callback), 100);
   }
 }
