@@ -13,6 +13,8 @@ let domReady = false;
 function initDOMElements() {
   if (domReady) return true;
   
+  console.log('Looking for DOM elements...');
+  
   const elements = {
     overlay: document.getElementById('status-overlay'),
     canvasWrap: document.getElementById('canvas-wrap'),
@@ -21,6 +23,16 @@ function initDOMElements() {
     travelBtn: document.getElementById('btn-travel'),
     sleepBtn: document.getElementById('btn-sleep')
   };
+  
+  // Log what we found
+  console.log('Found elements:', {
+    overlay: !!elements.overlay,
+    canvasWrap: !!elements.canvasWrap,
+    statusBtn: !!elements.statusBtn,
+    grazeBtn: !!elements.grazeBtn,
+    travelBtn: !!elements.travelBtn,
+    sleepBtn: !!elements.sleepBtn
+  });
   
   // Check if all required elements exist
   if (elements.overlay && elements.canvasWrap && elements.statusBtn && elements.grazeBtn) {
@@ -81,7 +93,7 @@ window.switchMode = function(mode) {
     }
     
     // Unmount current canvas mode
-    if (currentMode !== 'status') {
+    if (currentMode !== 'status' && currentMode) {
       if (currentMode === 'graze' && window.GrazeModule) window.GrazeModule.unmount();
       if (currentMode === 'travel' && window.TravelGame) window.TravelGame.unmount();
       if (currentMode === 'sleep' && window.SleepModule) window.SleepModule.unmount();
@@ -133,5 +145,7 @@ window.switchMode = function(mode) {
 };
 
 // Mark this script as loaded
-window.scriptsLoaded.uiMode = true;
-window.checkAllScriptsLoaded();
+if (typeof window.scriptsLoaded !== 'undefined') {
+  window.scriptsLoaded.uiMode = true;
+  if (window.checkAllScriptsLoaded) window.checkAllScriptsLoaded();
+}
