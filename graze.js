@@ -295,22 +295,27 @@ const GrazeModule = (() => {
 
   function getHorses() { return horses; }
 
-  function mount(parentEl) {
+function mount(parentEl) {
     container = parentEl;
-    container.innerHTML = '';
-
+    
+    // Remove only existing canvas elements, not everything
+    const existingCanvas = container.querySelector('canvas');
+    if (existingCanvas) {
+        existingCanvas.remove();
+    }
+    
     canvas = document.createElement('canvas');
     canvas.width = 800;
     canvas.height = 360;
     canvas.style.cssText = 'width:100%;max-width:800px;display:block;border-radius:4px;background:#a8d8a8;';
     ctx = canvas.getContext('2d');
-    container.appendChild(canvas);
+    container.appendChild(canvas);  // Append instead of replacing innerHTML
 
     initGrass();
     initHorsePositions();
     if (animId) cancelAnimationFrame(animId);
     loop();
-  }
+}
 
   function unmount() {
     if (animId) cancelAnimationFrame(animId);

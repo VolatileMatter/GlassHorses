@@ -362,8 +362,18 @@ const SleepModule = (() => {
 
   function mount(parentEl) {
     container = parentEl;
-    container.innerHTML = '';
-
+    
+    // Remove only existing canvas and tip
+    const existingCanvas = container.querySelector('canvas');
+    if (existingCanvas) {
+        existingCanvas.remove();
+    }
+    
+    const existingTip = container.querySelector('p');
+    if (existingTip) {
+        existingTip.remove();
+    }
+    
     canvas = document.createElement('canvas');
     canvas.width = 800;
     canvas.height = 400;

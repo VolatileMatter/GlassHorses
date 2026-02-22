@@ -397,9 +397,19 @@ const TravelGame = (() => {
   // --- Mount UI ---
   function mount(parentEl) {
     container = parentEl;
-    container.innerHTML = '';
-
-    // Canvas
+    
+    // Remove only existing canvas
+    const existingCanvas = container.querySelector('canvas');
+    if (existingCanvas) {
+        existingCanvas.remove();
+    }
+    
+    // Remove existing tip paragraph
+    const existingTip = container.querySelector('p');
+    if (existingTip) {
+        existingTip.remove();
+    }
+    
     canvas = document.createElement('canvas');
     canvas.width = 800;
     canvas.height = 400;
