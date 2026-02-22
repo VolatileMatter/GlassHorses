@@ -1,4 +1,136 @@
-<script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GlassHorses</title>
+  <link rel="stylesheet" href="styles.css">
+
+  <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+  <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+
+  <style>
+    /* Keep all the CSS styles from your original */
+    *, *::before, *::after { box-sizing: border-box; }
+    /* ... (all the CSS from your original index.html) ... */
+  </style>
+</head>
+<body>
+
+  <!-- Create Herd Modal -->
+  <div id="create-herd-modal" onclick="if(event.target===this) window.closeCreateHerdModal()">
+    <div id="create-herd-box">
+      <h3>New Herd</h3>
+      <label>Name</label>
+      <input id="new-herd-name" type="text" placeholder="e.g. Riverside Meadows" maxlength="60"
+             onkeydown="if(event.key==='Enter') window.submitCreateHerd()">
+      <label>Description</label>
+      <textarea id="new-herd-desc" rows="3" placeholder="Optional description..."></textarea>
+      <div class="modal-btns">
+        <button id="modal-cancel" onclick="window.closeCreateHerdModal()">Cancel</button>
+        <button id="modal-create" onclick="window.submitCreateHerd()">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <header>
+    <div id="topbar">
+      <span id="topbar-left">GlassHorses</span>
+      <button id="debug-toggle-btn" onclick="window.toggleDebugMode()">Debug</button>
+    </div>
+    <h1>GlassHorses</h1>
+    <p>Horse Breeding Simulator</p>
+  </header>
+
+  <nav>
+    <div id="auth-controls">
+      <button id="authorize_button" style="display:none">Authorize Drive</button>
+      <button id="signout_button" style="display:none">Sign Out</button>
+      <span id="user-name">Checking status...</span>
+    </div>
+  </nav>
+
+  <main>
+    <section id="single-player" class="section">
+
+      <!-- Debug Banner -->
+      <div id="debug-banner">
+        <strong>DEBUG</strong> — Loaded from debug_horses/herd1/ and debug_horses/herd2/.
+        New herds cached in sessionStorage. Abilities are placeholders.
+      </div>
+
+      <!-- Stable Chrome -->
+      <div id="stable-chrome">
+
+        <!-- Herd Tab Bar -->
+        <div id="stable-header">
+          <div id="stable-header-label">Herd</div>
+          <div id="herd-tabs"></div>
+          <button id="new-herd-tab" onclick="window.openCreateHerdModal()" style="display:none">+ New</button>
+        </div>
+
+        <!-- Canvas / Status area -->
+        <div id="canvas-wrap" style="min-height:360px;position:relative;">
+          <!-- Canvas modules mount here -->
+          <!-- Status overlay sits on top -->
+          <div id="status-overlay"></div>
+        </div>
+
+        <!-- Action Bar -->
+        <div id="action-bar">
+          <button id="btn-graze"  class="action-btn" onclick="window.switchMode('graze')">Graze</button>
+          <button id="btn-status" class="action-btn" onclick="window.switchMode('status')">View Status</button>
+          <button id="btn-travel" class="action-btn" onclick="window.switchMode('travel')">Travel</button>
+          <button id="btn-sleep"  class="action-btn" onclick="window.switchMode('sleep')">Sleep</button>
+        </div>
+
+      </div><!-- /stable-chrome -->
+
+      <!-- Debug Roster (below stable chrome) -->
+      <div id="debug-roster">
+        <div id="debug-roster-header">
+          <h3>Debug Roster</h3>
+          <div id="debug-herd-switcher"></div>
+        </div>
+        <div id="debug-horse-grid" class="debug-horse-grid"></div>
+      </div>
+
+      <!-- Drive / misc -->
+      <div id="drive-status"></div>
+      <pre id="content" style="display:none"></pre>
+      <div id="drive-debug"></div>
+
+    </section>
+
+    <section id="community-gallery" class="section">
+      <h2>Community Gallery</h2>
+      <div id="gallery-list">Loading gallery...</div>
+    </section>
+  </main>
+
+  <!-- Load Supabase first -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <!-- Core modules -->
+  <script src="config.js"></script>
+  <script src="horses.js"></script>
+  <script src="graze.js"></script>
+  <script src="travel.js"></script>
+  <script src="sleep.js"></script>
+  <script src="auth.js"></script>
+  <script src="drive.js"></script>
+  <script src="gallery.js"></script>
+  <script src="app.js"></script>
+  
+  <!-- UI Modules - load these last after DOM is ready -->
+  <script src="ui/ui-core.js"></script>
+  <script src="ui/ui-mode.js"></script>
+  <script src="ui/ui-herds.js"></script>
+  <script src="ui/ui-status.js"></script>
+  <script src="ui/ui-debug.js"></script>
+  <script src="ui/ui-modal.js"></script>
+
+ <script>
   // Simple initialization - wait for DOM and modules
   function initializeApp() {
     console.log('Initializing app...');
@@ -59,3 +191,20 @@
     initializeApp();
   }
 </script>
+
+  <!-- Minimal status button for dev -->
+  <div style="position:fixed;bottom:10px;right:10px;z-index:1000">
+    <button onclick="
+      const d = document.getElementById('drive-debug');
+      d.style.display = d.style.display==='none'?'block':'none';
+      const hm = window.HorseManager;
+      d.innerHTML = 'Mode: '+(window.currentMode||'none')+
+        ' | Debug: '+(hm?hm.isDebugMode():false)+
+        ' | Herds: '+(hm?hm.getAllHerds().length:0)+
+        ' | Active: '+(hm&&hm.getActiveHerd()?hm.getActiveHerd().meta.herd_name:'none')+
+        ' | Horses: '+(hm?hm.getHorses().length:0);
+    " style="font-size:0.65em;padding:4px 8px;opacity:0.4;background:#000;border:1px solid #222;color:#444;cursor:pointer">status</button>
+  </div>
+
+</body>
+</html>
