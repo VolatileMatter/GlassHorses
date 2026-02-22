@@ -131,20 +131,58 @@
   <script src="app.js"     onload="window.scriptsLoaded.app=true;     window.checkAllScriptsLoaded();" onerror="window.handleScriptError('app')"></script>
 
   <script>
-    document.addEventListener('allScriptsLoaded', () => {
-      if (window.HorseManager) window.HorseManager.onChange(window.onHerdChange);
-      // Default: graze runs passively
-      setTimeout(() => {
-        // Boot graze silently
-        window.GrazeModule && window.GrazeModule.mount(document.getElementById('canvas-wrap'));
+  // Wait for DOM to be ready
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM ready, waiting for scripts...');
+  });
+
+  document.addEventListener('allScriptsLoaded', () => {
+    console.log('All scripts loaded, initializing...');
+    
+    if (window.HorseManager) {
+      window.HorseManager.onChange(window.onHerdChange);
+    }
+    
+    // Small delay to ensure DOM is fully ready
+    setTimeout(() => {
+      const canvasWrap = document.getElementById('canvas-wrap');
+      const grazeBtn = document.getElementById('btn-graze');
+      const statusBtn = document.getElementById('btn-status');
+      
+      if (!canvasWrap) {
+        console.error('Canvas wrap not found!');
+        return;
+      }
+      
+      // Boot graze silently
+      if (window.GrazeModule) {
+        console.log('Mounting graze module');
+        window.GrazeModule.mount(canvasWrap);
         window.currentMode = 'graze';
         
         // Set graze button as active
         document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active'));
+        if (grazeBtn) grazeBtn.classList.add('active');
+        if (statusBtn) statusBtn.textContent = 'View Status';
+      } else {
+        console.error('GrazeModule not available');
+      }
+    }, 200);
+  });
+  
+  // Fallback if allScriptsLoaded doesn't fire
+  setTimeout(() => {
+    if (!window.currentMode) {
+      console.log('Fallback initialization');
+      const canvasWrap = document.getElementById('canvas-wrap');
+      if (canvasWrap && window.GrazeModule) {
+        window.GrazeModule.mount(canvasWrap);
+        window.currentMode = 'graze';
         document.getElementById('btn-graze')?.classList.add('active');
-      }, 150);
-    });
-  </script>
+      }
+    }
+  }, 2000);
+</script>
 
   <!-- Minimal status button for dev -->
   <div style="position:fixed;bottom:10px;right:10px;z-index:1000">

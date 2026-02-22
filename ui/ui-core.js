@@ -3,8 +3,9 @@
 
 // ==================== STATUS COLOUR ====================
 window.statusColor = function(h) {
-  if (h.injured || h.health < 30) return '#e03030';
-  if (h.health < 70 || h.hunger < 30) return '#d4a017';
+  if (!h) return '#2ecc71';
+  if (h.injured || (h.health && h.health < 30)) return '#e03030';
+  if ((h.health && h.health < 70) || (h.hunger && h.hunger < 30)) return '#d4a017';
   return '#2ecc71';
 };
 
@@ -24,6 +25,7 @@ window.checkAllScriptsLoaded = function() {
 };
 
 window.handleScriptError = function(name) {
+  console.warn(`Script ${name} failed to load`);
   window.scriptsLoaded[name] = true;
   window.checkAllScriptsLoaded();
 };

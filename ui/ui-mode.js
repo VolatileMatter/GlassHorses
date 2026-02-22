@@ -8,20 +8,30 @@ window.currentMode = null;
 window.switchMode = function(mode) {
   console.log('Switching to mode:', mode, 'current:', currentMode);
   
+  // Get DOM elements safely
+  const overlay = document.getElementById('status-overlay');
+  const canvasWrap = document.getElementById('canvas-wrap');
+  const statusBtn = document.getElementById('btn-status');
+  const grazeBtn = document.getElementById('btn-graze');
+  
+  if (!overlay || !canvasWrap) {
+    console.error('Required DOM elements not found');
+    return;
+  }
+  
   // If clicking status while already in status mode, close it
   if (mode === 'status' && currentMode === 'status') {
     console.log('Closing status overlay');
     
     // Hide status overlay
-    document.getElementById('status-overlay').classList.remove('visible');
+    overlay.classList.remove('visible');
     
     // Update button text
-    const statusBtn = document.getElementById('btn-status');
     if (statusBtn) statusBtn.textContent = 'View Status';
     
     // Reactivate graze mode
     if (window.GrazeModule) {
-      window.GrazeModule.mount(document.getElementById('canvas-wrap'));
+      window.GrazeModule.mount(canvasWrap);
     }
     
     currentMode = 'graze';
@@ -29,7 +39,7 @@ window.switchMode = function(mode) {
     
     // Update active button states
     document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('btn-graze')?.classList.add('active');
+    if (grazeBtn) grazeBtn.classList.add('active');
     
     return;
   }
@@ -37,10 +47,9 @@ window.switchMode = function(mode) {
   // If switching to a different mode from status, handle specially
   if (currentMode === 'status' && mode !== 'status') {
     // Just hide the overlay, no need to unmount anything else
-    document.getElementById('status-overlay').classList.remove('visible');
+    overlay.classList.remove('visible');
     
     // Update status button text
-    const statusBtn = document.getElementById('btn-status');
     if (statusBtn) statusBtn.textContent = 'View Status';
   }
   
@@ -59,25 +68,22 @@ window.switchMode = function(mode) {
   const activeBtn = document.getElementById('btn-' + mode);
   if (activeBtn) activeBtn.classList.add('active');
 
-  const canvasWrap = document.getElementById('canvas-wrap');
-  const overlay = document.getElementById('status-overlay');
-
   if (mode === 'status') {
     console.log('Showing status overlay');
     overlay.classList.add('visible');
     
     // Update button text
-    const statusBtn = document.getElementById('btn-status');
     if (statusBtn) statusBtn.textContent = 'Close';
     
     // Render status data
-    if (window.renderStatusOverlay) window.renderStatusOverlay();
+    if (window.renderStatusOverlay) {
+      setTimeout(() => window.renderStatusOverlay(), 50); // Small delay to ensure DOM is ready
+    }
     
     return;
   }
 
   // Reset status button text when switching to other modes
-  const statusBtn = document.getElementById('btn-status');
   if (statusBtn) statusBtn.textContent = 'View Status';
 
   // Hide status overlay for canvas modes
