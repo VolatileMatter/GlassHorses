@@ -1,5 +1,5 @@
 // ui/ui-mode.js
-// Mode switching logic
+// Mode switching logic with button hiding
 
 // ==================== MODE MANAGEMENT ====================
 let currentMode = null;
@@ -21,7 +21,8 @@ function initDOMElements() {
     statusBtn: document.getElementById('btn-status'),
     grazeBtn: document.getElementById('btn-graze'),
     travelBtn: document.getElementById('btn-travel'),
-    sleepBtn: document.getElementById('btn-sleep')
+    sleepBtn: document.getElementById('btn-sleep'),
+    actionBar: document.getElementById('action-bar')
   };
   
   // Log what we found
@@ -31,11 +32,12 @@ function initDOMElements() {
     statusBtn: !!elements.statusBtn,
     grazeBtn: !!elements.grazeBtn,
     travelBtn: !!elements.travelBtn,
-    sleepBtn: !!elements.sleepBtn
+    sleepBtn: !!elements.sleepBtn,
+    actionBar: !!elements.actionBar
   });
   
   // Check if all required elements exist
-  if (elements.overlay && elements.canvasWrap && elements.statusBtn && elements.grazeBtn) {
+  if (elements.overlay && elements.canvasWrap && elements.statusBtn && elements.grazeBtn && elements.actionBar) {
     domElements = elements;
     domReady = true;
     console.log('UI DOM elements ready');
@@ -55,6 +57,24 @@ function ensureDOM(callback) {
   }
 }
 
+// Show all action buttons
+function showAllButtons() {
+  if (!domElements) return;
+  domElements.grazeBtn.style.display = 'inline-block';
+  domElements.statusBtn.style.display = 'inline-block';
+  domElements.travelBtn.style.display = 'inline-block';
+  domElements.sleepBtn.style.display = 'inline-block';
+}
+
+// Hide all action buttons
+function hideAllButtons() {
+  if (!domElements) return;
+  domElements.grazeBtn.style.display = 'none';
+  domElements.statusBtn.style.display = 'none';
+  domElements.travelBtn.style.display = 'none';
+  domElements.sleepBtn.style.display = 'none';
+}
+
 window.switchMode = function(mode) {
   console.log('Switching to mode:', mode, 'current:', currentMode);
   
@@ -68,8 +88,11 @@ window.switchMode = function(mode) {
       // Hide status overlay
       elements.overlay.classList.remove('visible');
       
-      // Update button text
-      elements.statusBtn.textContent = 'View Status';
+      // Show all buttons
+      showAllButtons();
+      
+      // Hide the status button (since we're leaving status mode)
+      elements.statusBtn.style.display = 'none';
       
       // Reactivate graze mode
       if (window.GrazeModule) {
@@ -79,17 +102,13 @@ window.switchMode = function(mode) {
       currentMode = 'graze';
       window.currentMode = 'graze';
       
-      // Update active button states
-      document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active'));
-      elements.grazeBtn.classList.add('active');
-      
       return;
     }
     
     // If switching to a different mode from status
     if (currentMode === 'status' && mode !== 'status') {
       elements.overlay.classList.remove('visible');
-      elements.statusBtn.textContent = 'View Status';
+      showAllButtons();
     }
     
     // Unmount current canvas mode
@@ -102,17 +121,18 @@ window.switchMode = function(mode) {
     currentMode = mode;
     window.currentMode = mode;
 
-    // Update button active states
-    document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('active'));
-    const activeBtn = document.getElementById('btn-' + mode);
-    if (activeBtn) activeBtn.classList.add('active');
+    // Hide all buttons first
+    hideAllButtons();
+    
+    // Show all buttons EXCEPT the current mode's button
+    if (mode !== 'graze') elements.grazeBtn.style.display = 'inline-block';
+    if (mode !== 'status') elements.statusBtn.style.display = 'inline-block';
+    if (mode !== 'travel') elements.travelBtn.style.display = 'inline-block';
+    if (mode !== 'sleep') elements.sleepBtn.style.display = 'inline-block';
 
     if (mode === 'status') {
       console.log('Showing status overlay');
       elements.overlay.classList.add('visible');
-      
-      // Update button text
-      elements.statusBtn.textContent = 'Close';
       
       // Render status data
       if (window.renderStatusOverlay) {
@@ -121,9 +141,6 @@ window.switchMode = function(mode) {
       
       return;
     }
-
-    // Reset status button text
-    elements.statusBtn.textContent = 'View Status';
 
     // Hide status overlay
     elements.overlay.classList.remove('visible');
@@ -141,6 +158,32 @@ window.switchMode = function(mode) {
       console.log('Mounting sleep mode');
       window.SleepModule.mount(elements.canvasWrap);
     }
+  });
+};
+
+// Initialize default state (graze mode active, hide graze button)
+window.initializeModeUI = function() {
+  ensureDOM(() => {
+    const elements = domElements;
+    
+    // Start in graze mode
+    currentMode = 'graze';
+    window.currentMode = 'graze';
+    
+    // Mount graze module
+    if (window.GrazeModule) {
+      window.GrazeModule.mount(elements.canvasWrap);
+    }
+    
+    // Hide all buttons first
+    hideAllButtons();
+    
+    // Show all buttons EXCEPT graze
+    elements.statusBtn.style.display = 'inline-block';
+    elements.travelBtn.style.display = 'inline-block';
+    elements.sleepBtn.style.display = 'inline-block';
+    
+    console.log('Mode UI initialized - Graze active, graze button hidden');
   });
 };
 

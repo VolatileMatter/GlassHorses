@@ -1,5 +1,32 @@
 // === MAIN APPLICATION ===
 
+// === ENSURE STATUS OVERLAY EXISTS ===
+function ensureStatusOverlay() {
+  let overlay = document.getElementById('status-overlay');
+  if (!overlay) {
+    console.log('⚠️ Status overlay missing - creating dynamically');
+    const canvasWrap = document.getElementById('canvas-wrap');
+    if (canvasWrap) {
+      overlay = document.createElement('div');
+      overlay.id = 'status-overlay';
+      overlay.style.cssText = 'display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(20,20,30,0.95);backdrop-filter:blur(8px);color:#e0e0e0;z-index:1000;overflow-y:auto;padding:20px;border-radius:12px;border:2px solid rgba(0,255,255,0.3);box-shadow:inset 0 0 30px rgba(138,43,226,0.3);font-family:"Segoe UI",sans-serif;';
+      overlay.innerHTML = `
+        <div style="font-size:1.2em; font-weight:bold; color:#00ffff; margin-bottom:15px; padding-bottom:5px; border-bottom:2px solid rgba(255,0,255,0.3);">
+          Status Panel
+        </div>
+        <div style="color:#aaa; text-align:center; padding:20px;">
+          Loading horse data...
+        </div>
+      `;
+      canvasWrap.appendChild(overlay);
+      console.log('✅ Status overlay created successfully');
+    } else {
+      console.error('❌ Cannot create overlay - canvas-wrap not found');
+    }
+  }
+  return overlay;
+}
+
 // === WAIT FOR ALL SCRIPTS TO LOAD ===
 function waitForScripts() {
   return new Promise((resolve) => {
@@ -22,58 +49,44 @@ function waitForScripts() {
 }
 
 // === INITIALIZATION ===
-async function initializeApp() {
-  console.log('🚀 GlassHorses app initializing...');
+function initializeApp() {
+  console.log('Initializing app...');
   
-  try {
-    // Wait for all scripts to load first
-    const scriptsReady = await waitForScripts();
-    if (!scriptsReady) {
-      console.warn('⚠️ Some scripts may not have loaded properly');
-    }
-    
-    // Check authentication state
-    const { data: { session } } = await sb.auth.getSession();
-    console.log('🔐 Session check:', session ? 'Active' : 'No session');
-    
-    // Load gallery (will show public content)
-    await loadGallery();
-    
-    // Log available functions for debugging
-    console.log('✅ App initialization check:');
-    console.log('  createPlayerSaveFolder:', typeof window.createPlayerSaveFolder);
-    console.log('  signInWithGoogle:', typeof window.signInWithGoogle);
-    console.log('  loadGallery:', typeof loadGallery);
-    console.log('  gapi:', typeof window.gapi);
-    console.log('  scriptsLoaded:', window.scriptsLoaded);
-    
-    // Set up breed button
-    const breedBtn = document.getElementById('breed-btn');
-    if (breedBtn) {
-      breedBtn.addEventListener('click', () => {
-        alert('Horse breeding logic coming in the next update! 🐎');
-      });
-    }
-    
-    // Show app ready state
-    console.log('✅ App initialized successfully');
-    
-  } catch (error) {
-    console.error('❌ App initialization failed:', error);
-    
-    // Show user-friendly error
-    const galleryEl = document.getElementById('gallery-list');
-    if (galleryEl) {
-      galleryEl.innerHTML = `
-        <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #e74c3c;">
-          <h3>Application Error</h3>
-          <p>Failed to initialize. Please refresh the page.</p>
-          <p><small>Error: ${error.message}</small></p>
-          <button onclick="window.location.reload()" style="margin-top: 20px;">🔄 Refresh Page</button>
-        </div>
-      `;
-    }
+  // Ensure status overlay exists
+  ensureStatusOverlay();
+  
+  // Check if all required modules are loaded
+  if (!window.GrazeModule || !window.HorseManager) {
+    console.log('Waiting for modules...');
+    setTimeout(initializeApp, 100);
+    return;
   }
+  
+  const canvasWrap = document.getElementById('canvas-wrap');
+  if (!canvasWrap) {
+    console.log('Waiting for canvas...');
+    setTimeout(initializeApp, 100);
+    return;
+  }
+  
+  console.log('All systems ready, starting app');
+  
+  // Set up HorseManager change handler
+  if (window.HorseManager && window.onHerdChange) {
+    window.HorseManager.onChange(window.onHerdChange);
+  }
+  
+  // Load debug herds (already does this by default, but ensure it's loaded)
+  if (window.HorseManager && !window.HorseManager.getHorses().length) {
+    window.HorseManager.loadDebugHerds();
+  }
+  
+  // Initialize the mode UI (this will set up graze mode and hide graze button)
+  if (window.initializeModeUI) {
+    window.initializeModeUI();
+  }
+  
+  console.log('App initialized successfully');
 }
 
 // === PAGE LOAD ===
