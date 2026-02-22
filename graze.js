@@ -1,9 +1,8 @@
 // === GRAZE MODE ===
-// Horses wander a pasture, eating grass. Default state.
-// Horses must be grazing to breed.
+// Default state. Horses wander a pasture and eat grass.
+// Required for breeding.
 
 const GrazeModule = (() => {
-  // --- Horse data: pulled from HorseManager if available, else fallback ---
   const FALLBACK_HORSES = [
     { id: 'f1', name: 'Shadowmere', barn_name: 'Shadowmere', color: '#3a2a1a', hunger: 80, health: 100, mood: 'content', injured: false, age: 3 },
     { id: 'f2', name: 'Blaze',      barn_name: 'Blaze',      color: '#c0602a', hunger: 55, health: 100, mood: 'happy',   injured: false, age: 5 },
@@ -36,13 +35,12 @@ const GrazeModule = (() => {
   }
 
   function initHorsePositions() {
-    // Pull from HorseManager if available, else use fallback
     const source = (window.HorseManager && window.HorseManager.getHorses().length > 0)
       ? window.HorseManager.getHorses()
       : FALLBACK_HORSES;
     horses = source.map((h, i) => ({
       ...h,
-      name: h.barn_name || h.name || `Horse ${i+1}`,
+      name: h.barn_name || h.name || `Horse ${i + 1}`,
       x: 80 + i * Math.floor((PASTURE_W - 160) / Math.max(source.length - 1, 1)),
       y: PASTURE_H * 0.65 + Math.random() * 60,
       vx: (Math.random() - 0.5) * SPEED * 2,
@@ -54,16 +52,20 @@ const GrazeModule = (() => {
     }));
   }
 
+  // ---- Status colour ----
+  function statusColor(h) {
+    if (h.injured || h.health < 30) return '#e03030'; // red — very sick
+    if (h.health < 70 || h.hunger < 30) return '#d4a017'; // yellow — sick
+    return '#2ecc71'; // green — healthy
+  }
+
   // ---- Update ----
   function updateGrass() {
     grassTufts.forEach(g => {
       g.sway += 0.03;
       if (g.eaten) {
         g.regrowTimer--;
-        if (g.regrowTimer <= 0) {
-          g.eaten = false;
-          g.h = 6 + Math.random() * 10;
-        }
+        if (g.regrowTimer <= 0) { g.eaten = false; g.h = 6 + Math.random() * 10; }
       }
     });
   }
@@ -76,7 +78,6 @@ const GrazeModule = (() => {
       if (horse.state === 'eat') {
         horse.eatTimer = (horse.eatTimer || 0) + 1;
         horse.legPhase = 0;
-        // Eat nearby grass
         if (horse.eatTimer % 30 === 0) {
           horse.hunger = Math.min(100, horse.hunger + 5);
           const nearby = grassTufts.find(g => !g.eaten && Math.abs(g.x - horse.x) < 25 && Math.abs(g.y - horse.y) < 20);
@@ -93,40 +94,32 @@ const GrazeModule = (() => {
         return;
       }
 
-      // Walk
       horse.legPhase = (horse.legPhase || 0) + 0.12;
       horse.x += horse.vx;
       horse.y += horse.vy;
 
-      // Bounce off pasture edges
       if (horse.x < MARGIN) { horse.x = MARGIN; horse.vx = Math.abs(horse.vx); }
       if (horse.x > PASTURE_W - MARGIN) { horse.x = PASTURE_W - MARGIN; horse.vx = -Math.abs(horse.vx); }
       if (horse.y < PASTURE_H * 0.5) { horse.y = PASTURE_H * 0.5; horse.vy = Math.abs(horse.vy) * 0.5; }
       if (horse.y > PASTURE_H * 0.92) { horse.y = PASTURE_H * 0.92; horse.vy = -Math.abs(horse.vy) * 0.5; }
 
-      // Random direction nudge
       if (Math.random() < 0.01) {
         horse.vx += (Math.random() - 0.5) * 0.5;
         horse.vy += (Math.random() - 0.5) * 0.2;
         const spd = Math.sqrt(horse.vx ** 2 + horse.vy ** 2);
-        horse.vx = (horse.vx / spd) * SPEED;
-        horse.vy = (horse.vy / spd) * SPEED * 0.3;
+        if (spd > 0) { horse.vx = (horse.vx / spd) * SPEED; horse.vy = (horse.vy / spd) * SPEED * 0.3; }
       }
 
-      // Decide to eat
       if (horse.grazeTimer <= 0) {
         horse.state = 'eat';
         horse.grazeTimer = 60 + Math.floor(Math.random() * 120);
-        horse.vx = 0;
-        horse.vy = 0;
+        horse.vx = 0; horse.vy = 0;
       }
 
-      // Mood
       if (horse.hunger > 70) horse.mood = 'happy';
       else if (horse.hunger > 40) horse.mood = 'content';
       else horse.mood = 'hungry';
 
-      // Slow hunger decay
       if (frameCount % 120 === 0) horse.hunger = Math.max(0, horse.hunger - 1);
     });
   }
@@ -135,7 +128,7 @@ const GrazeModule = (() => {
   function drawBackground() {
     const w = canvas.width, h = canvas.height;
 
-    // Sky strip
+    // Sky
     const sky = ctx.createLinearGradient(0, 0, 0, PASTURE_H * 0.45);
     sky.addColorStop(0, '#a8d8a8');
     sky.addColorStop(1, '#c8e8a8');
@@ -150,7 +143,7 @@ const GrazeModule = (() => {
     ctx.fillStyle = ground;
     ctx.fillRect(0, PASTURE_H * 0.45, w, h - PASTURE_H * 0.45);
 
-    // Gentle rolling hill horizon
+    // Rolling hill horizon
     ctx.fillStyle = '#5a9e3a';
     ctx.beginPath();
     ctx.moveTo(0, PASTURE_H * 0.48);
@@ -159,22 +152,7 @@ const GrazeModule = (() => {
     ctx.lineTo(w, PASTURE_H * 0.55);
     ctx.lineTo(0, PASTURE_H * 0.55);
     ctx.fill();
-
-    // Fence posts
-    ctx.fillStyle = '#8B6914';
-    for (let fx = 0; fx < w; fx += 80) {
-      ctx.fillRect(fx, PASTURE_H * 0.62, 8, 40);
-    }
-    ctx.strokeStyle = '#8B6914';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(0, PASTURE_H * 0.68);
-    ctx.lineTo(w, PASTURE_H * 0.68);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, PASTURE_H * 0.75);
-    ctx.lineTo(w, PASTURE_H * 0.75);
-    ctx.stroke();
+    // No fence
   }
 
   function drawGrass() {
@@ -218,43 +196,29 @@ const GrazeModule = (() => {
     ctx.fillStyle = c;
     ctx.beginPath();
     if (eating) {
-      ctx.moveTo(16, -30);
-      ctx.lineTo(22, -10);
-      ctx.lineTo(28, -12);
-      ctx.lineTo(22, -32);
+      ctx.moveTo(16, -30); ctx.lineTo(22, -10); ctx.lineTo(28, -12); ctx.lineTo(22, -32);
     } else {
-      ctx.moveTo(16, -30);
-      ctx.lineTo(20, -44);
-      ctx.lineTo(26, -42);
-      ctx.lineTo(22, -28);
+      ctx.moveTo(16, -30); ctx.lineTo(20, -44); ctx.lineTo(26, -42); ctx.lineTo(22, -28);
     }
     ctx.fill();
 
     // Head
     ctx.fillStyle = c;
     if (eating) {
-      ctx.beginPath();
-      ctx.ellipse(30, -8, 11, 7, 0.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#222';
-      ctx.beginPath(); ctx.arc(34, -10, 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(30, -8, 11, 7, 0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(34, -10, 1.5, 0, Math.PI * 2); ctx.fill();
     } else {
-      ctx.beginPath();
-      ctx.ellipse(24, -48, 10, 7, -0.3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#222';
-      ctx.beginPath(); ctx.arc(30, -50, 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(24, -48, 10, 7, -0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(30, -50, 1.5, 0, Math.PI * 2); ctx.fill();
     }
 
     // Mane
     ctx.fillStyle = shadeColor(c, -40);
     ctx.beginPath();
     if (eating) {
-      ctx.moveTo(18, -32); ctx.bezierCurveTo(12, -36, 4, -34, 0, -28);
-      ctx.bezierCurveTo(4, -30, 12, -32, 18, -32);
+      ctx.moveTo(18, -32); ctx.bezierCurveTo(12, -36, 4, -34, 0, -28); ctx.bezierCurveTo(4, -30, 12, -32, 18, -32);
     } else {
-      ctx.moveTo(20, -42); ctx.bezierCurveTo(14, -48, 6, -46, 2, -38);
-      ctx.bezierCurveTo(8, -40, 14, -44, 20, -42);
+      ctx.moveTo(20, -42); ctx.bezierCurveTo(14, -48, 6, -46, 2, -38); ctx.bezierCurveTo(8, -40, 14, -44, 20, -42);
     }
     ctx.fill();
 
@@ -262,43 +226,42 @@ const GrazeModule = (() => {
     ctx.strokeStyle = shadeColor(c, -40);
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(-22, -28);
-    ctx.bezierCurveTo(-36, -22, -38, -12, -30, -4);
-    ctx.stroke();
+    ctx.moveTo(-22, -28); ctx.bezierCurveTo(-36, -22, -38, -12, -30, -4); ctx.stroke();
 
     // Legs
-    ctx.strokeStyle = c;
-    ctx.lineWidth = 4;
-    ctx.lineCap = 'round';
+    ctx.strokeStyle = c; ctx.lineWidth = 4; ctx.lineCap = 'round';
     if (eating) {
-      // Splayed grazing stance
-      drawLeg(ctx, 12, -10, 0, 28);
-      drawLeg(ctx, 5, -10, 3, 28);
-      drawLeg(ctx, -10, -10, -3, 28);
-      drawLeg(ctx, -18, -10, 0, 28);
+      drawLeg(ctx, 12, -10, 0, 28); drawLeg(ctx, 5, -10, 3, 28);
+      drawLeg(ctx, -10, -10, -3, 28); drawLeg(ctx, -18, -10, 0, 28);
     } else {
       const s = Math.sin(lp);
-      drawLeg(ctx, 12, -10, s * 10, 28);
-      drawLeg(ctx, 5, -10, -s * 10, 28);
-      drawLeg(ctx, -10, -10, -s * 10, 28);
-      drawLeg(ctx, -18, -10, s * 10, 28);
+      drawLeg(ctx, 12, -10, s * 10, 28); drawLeg(ctx, 5, -10, -s * 10, 28);
+      drawLeg(ctx, -10, -10, -s * 10, 28); drawLeg(ctx, -18, -10, s * 10, 28);
     }
 
-    // Mood emoji
-    const moods = { happy: '😄', content: '😊', hungry: '😟' };
-    ctx.restore();
-    ctx.save();
-    ctx.font = '14px serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(moods[h.mood] || '😊', h.x, h.y - 55);
     ctx.restore();
 
-    // Name label
+    // Name label + status square — drawn in world space
     ctx.save();
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.font = '11px sans-serif';
+    const sc = statusColor(h);
+    const labelY = h.y - 58;
+    const name = h.barn_name || h.name || '';
+
+    ctx.font = '11px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(h.name, h.x, h.y - 68);
+    const textW = ctx.measureText(name).width;
+
+    // Name
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.fillRect(h.x - textW / 2 - 14, labelY - 11, textW + 22, 14);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(name, h.x - 4, labelY);
+
+    // Status square — right of name
+    const sqX = h.x + textW / 2 + 4;
+    ctx.fillStyle = sc;
+    ctx.fillRect(sqX - 10, labelY - 10, 8, 8);
+
     ctx.restore();
   }
 
@@ -320,44 +283,6 @@ const GrazeModule = (() => {
     return `rgb(${r},${g},${b})`;
   }
 
-  function drawStatsPanel() {
-    const panelX = 5;
-    const panelY = canvas.height - 70;
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.beginPath();
-    ctx.roundRect(panelX, panelY, canvas.width - 10, 65, 8);
-    ctx.fill();
-
-    horses.forEach((h, i) => {
-      const col = panelX + 10 + i * 255;
-      ctx.fillStyle = h.color;
-      ctx.font = 'bold 12px monospace';
-      ctx.fillText(h.name, col, panelY + 16);
-
-      // Hunger bar
-      ctx.fillStyle = '#333';
-      ctx.fillRect(col, panelY + 22, 120, 8);
-      const hungerColor = h.hunger > 60 ? '#4caf50' : h.hunger > 30 ? '#ff9800' : '#f44336';
-      ctx.fillStyle = hungerColor;
-      ctx.fillRect(col, panelY + 22, h.hunger * 1.2, 8);
-      ctx.fillStyle = '#aaa';
-      ctx.font = '10px monospace';
-      ctx.fillText(`🌿 ${Math.floor(h.hunger)}%`, col + 126, panelY + 30);
-
-      // Health bar
-      ctx.fillStyle = '#333';
-      ctx.fillRect(col, panelY + 36, 120, 8);
-      ctx.fillStyle = '#e91e63';
-      ctx.fillRect(col, panelY + 36, h.health * 1.2, 8);
-      ctx.fillStyle = '#aaa';
-      ctx.fillText(`❤️ ${Math.floor(h.health)}%`, col + 126, panelY + 44);
-
-      ctx.fillStyle = '#ccc';
-      const breedable = h.hunger >= 50 && !h.injured;
-      ctx.fillText(breedable ? '✅ Can breed' : '❌ Not ready', col, panelY + 58);
-    });
-  }
-
   function loop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     updateGrass();
@@ -365,14 +290,10 @@ const GrazeModule = (() => {
     drawBackground();
     drawGrass();
     horses.forEach(drawHorse);
-    drawStatsPanel();
     animId = requestAnimationFrame(loop);
   }
 
-  // ---- Public API ----
-  function getHorses() {
-    return horses;
-  }
+  function getHorses() { return horses; }
 
   function mount(parentEl) {
     container = parentEl;
@@ -380,22 +301,10 @@ const GrazeModule = (() => {
 
     canvas = document.createElement('canvas');
     canvas.width = 800;
-    canvas.height = 400;
-    canvas.style.cssText = `
-      width: 100%;
-      max-width: 800px;
-      display: block;
-      border: 2px solid rgba(100,200,80,0.4);
-      border-radius: 12px;
-      background: #a8d8a8;
-    `;
+    canvas.height = 360;
+    canvas.style.cssText = 'width:100%;max-width:800px;display:block;border-radius:4px;background:#a8d8a8;';
     ctx = canvas.getContext('2d');
     container.appendChild(canvas);
-
-    const tip = document.createElement('p');
-    tip.style.cssText = 'color: #aaa; font-size: 0.85em; margin: 8px 0 0; text-align: center;';
-    tip.textContent = 'Your horses are grazing 🌿 — hungry horses will eat; well-fed horses can breed.';
-    container.appendChild(tip);
 
     initGrass();
     initHorsePositions();
@@ -412,4 +321,4 @@ const GrazeModule = (() => {
 })();
 
 window.GrazeModule = GrazeModule;
-console.log('✅ graze.js loaded');
+console.log('graze.js loaded');

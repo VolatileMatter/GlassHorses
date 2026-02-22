@@ -418,7 +418,7 @@ const TravelGame = (() => {
     // Instructions
     const tip = document.createElement('p');
     tip.style.cssText = 'color: #aaa; font-size: 0.85em; margin: 8px 0 0; text-align: center;';
-    tip.textContent = 'Press SPACE or click/tap the canvas to make your horses jump over rocks!';
+    tip.textContent = 'Press SPACE or click/tap the canvas to make your horses jump over rocks.';
     container.appendChild(tip);
 
     // Input

@@ -248,7 +248,7 @@ const SleepModule = (() => {
       const offsetY = -40 - j * 16 - ((t * 20 + j * 50) % 60);
       if (alpha > 0.05) {
         ctx.fillStyle = `rgba(180, 210, 255, ${alpha * 0.9})`;
-        ctx.font = `${12 + j * 4}px serif`;
+    ctx.font = `${12 + j * 4}px system-ui, sans-serif`;
         ctx.textAlign = 'center';
         ctx.fillText(letter, 50 + j * 8, offsetY);
       }
@@ -259,15 +259,29 @@ const SleepModule = (() => {
     ctx.save();
     ctx.font = '11px monospace';
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#88aaff';
-    ctx.fillText(horse.barn_name || horse.name || 'Horse', bx, by - 52);
-    if (horse.injured) {
-      ctx.fillStyle = '#ff6666';
-      ctx.fillText('🩹 Healing...', bx, by - 38);
-    } else {
-      ctx.fillStyle = '#66ff88';
-      ctx.fillText('💤 Resting', bx, by - 38);
-    }
+    const horseName = horse.barn_name || horse.name || 'Horse';
+    const sc = (horse.injured || (horse.health || 100) < 30) ? '#e03030'
+             : ((horse.health || 100) < 70 || (horse.hunger || 75) < 30) ? '#d4a017'
+             : '#2ecc71';
+
+    ctx.font = '11px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    const tw = ctx.measureText(horseName).width;
+
+    // Name pill
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(bx - tw / 2 - 14, by - 63, tw + 22, 14);
+    ctx.fillStyle = '#aaa';
+    ctx.fillText(horseName, bx - 4, by - 52);
+
+    // Status square
+    ctx.fillStyle = sc;
+    ctx.fillRect(bx + tw / 2 + 4, by - 63, 7, 7);
+
+    // State label
+    ctx.fillStyle = '#333';
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.fillText(horse.injured ? 'Healing' : 'Resting', bx, by - 40);
     ctx.restore();
   }
 
@@ -293,8 +307,8 @@ const SleepModule = (() => {
     ctx.roundRect(px, py, pw, ph, 8);
     ctx.fill();
 
-    ctx.fillStyle = '#6688cc';
-    ctx.font = 'bold 12px monospace';
+    ctx.fillStyle = '#333';
+    ctx.font = '10px system-ui, sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText('Sleep cycle progress:', px + 10, py + 18);
 
@@ -311,9 +325,9 @@ const SleepModule = (() => {
     ctx.fillText(`Next tick in ${secs}s`, px + pw - 10, py + 34);
     ctx.textAlign = 'left';
 
-    ctx.fillStyle = '#557799';
-    ctx.font = '10px monospace';
-    ctx.fillText(`💤 Sleeping heals injuries | Ages horses | Ticks statuses`, px + 10, py + 46);
+    ctx.fillStyle = '#222';
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.fillText('Sleeping heals injuries | Ages horses | Ticks statuses', px + 10, py + 46);
   }
 
   function loop() {
