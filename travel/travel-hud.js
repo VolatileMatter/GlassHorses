@@ -31,57 +31,113 @@ const TravelHUD = (() => {
     ctx.fillStyle  = 'rgba(255,255,255,0.5)';
     ctx.font       = '11px monospace';
     ctx.textAlign  = 'right';
-    ctx.fillText('Hold SPACE = bigger jump', canvas.width - 10, 19);
+    ctx.fillText('Hold SPACE = float down', canvas.width - 10, 19);
     ctx.textAlign  = 'left';
 
-    // Jump charge bar (bottom-left, only when holding)
+    // Jump float bar — visible while lead is airborne (ascending or slow-falling)
     const lead = horses.find(h => h.isLead && !h.dead);
-    if (lead && lead.jumpHeld) {
-      _drawChargeBar(ctx, canvas, lead.chargeRatio);
+    if (lead && !lead.onGround) {
+      const TC = window.TravelConstants;
+      const isAscending  = lead.vy < 0;
+      const isSlowFall   = lead.jumpHeld && lead.holdFrames < (TC?.MAX_HOLD_FRAMES || 28);
+      if (isAscending || isSlowFall) {
+        // remaining = 1.0 while ascending; drains during slow-fall
+        const remaining = isAscending
+          ? 1.0
+          : 1 - Math.min(1, lead.holdFrames / (TC?.MAX_HOLD_FRAMES || 28));
+        _drawFloatBar(ctx, canvas, remaining, isAscending);
+      }
     }
   }
 
-  function _drawChargeBar(ctx, canvas, ratio) {
+  function _drawFloatBar(ctx, canvas, remaining, isAscending) {
     const bx = 10, by = canvas.height - 26, bw = 160, bh = 13;
     ctx.fillStyle = 'rgba(0,0,0,0.65)';
     ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
 
     const grad = ctx.createLinearGradient(bx, 0, bx + bw, 0);
-    grad.addColorStop(0, '#44aaff');
-    grad.addColorStop(0.6, '#88eeff');
-    grad.addColorStop(1, '#fffb40');
+    if (isAscending) {
+      // Bright solid while rising
+      grad.addColorStop(0, '#44ddff');
+      grad.addColorStop(1, '#aaffee');
+    } else {
+      // Drains yellow→orange as slow-fall runs out
+      grad.addColorStop(0,   '#44aaff');
+      grad.addColorStop(0.5, '#88eeff');
+      grad.addColorStop(1,   '#fffb40');
+    }
     ctx.fillStyle = grad;
-    ctx.fillRect(bx, by, bw * ratio, bh);
+    ctx.fillRect(bx, by, bw * remaining, bh);
 
     ctx.fillStyle  = 'rgba(255,255,255,0.8)';
     ctx.font       = '9px monospace';
     ctx.textAlign  = 'left';
-    ctx.fillText('JUMP POWER', bx + 3, by + bh - 2);
+    ctx.fillText(isAscending ? 'RISING' : 'HOLD TO FLOAT', bx + 3, by + bh - 2);
   }
 
-  function drawGameOver(ctx, canvas, score, totalCashedApples) {
-    ctx.fillStyle = 'rgba(0,0,0,0.72)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  function drawGameOver(ctx, canvas, score, totalCashedApples, lastCheckpointKm) {
+    const w = canvas.width, h = canvas.height;
+    ctx.fillStyle = 'rgba(0,0,0,0.82)';
+    ctx.fillRect(0, 0, w, h);
 
+    // Title
     ctx.fillStyle   = '#ff4444';
-    ctx.font        = 'bold 36px monospace';
+    ctx.font        = 'bold 30px monospace';
     ctx.textAlign   = 'center';
     ctx.shadowColor = '#ff4444'; ctx.shadowBlur = 14;
-    ctx.fillText('ALL HORSES DOWN', canvas.width / 2, canvas.height / 2 - 44);
-    ctx.shadowBlur = 0;
+    ctx.fillText('ALL HORSES DOWN', w / 2, h * 0.20);
+    ctx.shadowBlur  = 0;
 
-    ctx.fillStyle = '#fff';
-    ctx.font      = '21px monospace';
-    ctx.fillText(`Distance: ${(score/1000).toFixed(2)}km`, canvas.width / 2, canvas.height / 2 + 2);
+    // Summary panel
+    const pw = 460, ph = 180;
+    const px = (w - pw) / 2, py = h * 0.27;
+    ctx.fillStyle = 'rgba(15,15,30,0.95)';
+    ctx.beginPath();
+    ctx.roundRect(px, py, pw, ph, 12);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth   = 1;
+    ctx.stroke();
 
-    ctx.fillStyle = '#ff9966';
-    ctx.font      = '17px monospace';
-    ctx.fillText(`🍎 ${totalCashedApples} apples earned this run`, canvas.width / 2, canvas.height / 2 + 34);
+    // Panel header
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font      = '11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('RUN SUMMARY', w / 2, py + 20);
 
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.font      = '14px monospace';
-    ctx.fillText('Press SPACE or tap to travel again', canvas.width / 2, canvas.height / 2 + 66);
+    // Divider
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    ctx.moveTo(px + 20, py + 28); ctx.lineTo(px + pw - 20, py + 28);
+    ctx.stroke();
+
+    // Stats
+    const col1 = px + pw * 0.28, col2 = px + pw * 0.72;
+    const row1 = py + 62, row2 = py + 118;
+
+    _drawStat(ctx, col1, row1, 'DISTANCE', `${(score / 1000).toFixed(2)} km`);
+    _drawStat(ctx, col2, row1, 'LAST CHECKPOINT', lastCheckpointKm > 0 ? `${lastCheckpointKm} km` : 'none');
+    _drawStat(ctx, col1, row2, 'APPLES SAVED', `🍎 ${totalCashedApples}`);
+    _drawStat(ctx, col2, row2, 'UNSAVED APPLES', totalCashedApples === 0 && score > 0 ? '💨 lost' : '(at checkpoint)');
+
+    // Restart hint
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.font      = '13px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Press SPACE or click to ride again', w / 2, py + ph + 28);
     ctx.textAlign = 'left';
+  }
+
+  function _drawStat(ctx, cx, cy, label, value) {
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font      = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, cx, cy - 14);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font      = 'bold 18px monospace';
+    ctx.fillText(value, cx, cy + 6);
   }
 
   return { draw, drawGameOver };

@@ -100,15 +100,18 @@ const TravelHorse = (() => {
       if (!this.onGround && this._coyoteFrames > 0) this._coyoteFrames--;
       if (this._jumpBuffer > 0) this._jumpBuffer--;
 
-      // Gravity selection
+      // Gravity selection:
+      //   Ascending (vy < 0): always normal gravity → reaches apex fast
+      //   Falling  (vy > 0) + button held + within hold window → soft gravity (slow descent)
+      //   Falling  (vy > 0) + button released → punchy gravity (snap to ground)
       let grav;
-      if (this.vy < 0 && this.jumpHeld && this.holdFrames < TC.MAX_HOLD_FRAMES) {
-        grav = TC.HOLD_GRAVITY;   // still rising AND button held → float
+      if (this.vy > 0 && this.jumpHeld && this.holdFrames < TC.MAX_HOLD_FRAMES) {
+        grav = TC.HOLD_FALL_GRAVITY !== undefined ? TC.HOLD_FALL_GRAVITY : 0.18;
         this.holdFrames++;
       } else if (this.vy > 0) {
-        grav = TC.GRAVITY * TC.FALL_GRAVITY_MULT;   // falling → punchy
+        grav = TC.GRAVITY * (TC.FALL_GRAVITY_MULT || 1.7);
       } else {
-        grav = TC.GRAVITY;
+        grav = TC.GRAVITY;   // ascending — full gravity, hits apex quickly
       }
 
       this.vy += grav;
@@ -267,10 +270,17 @@ const TravelHorse = (() => {
         ctx.fill();
       }
 
-      // Hold indicator: arc showing remaining hold time while airborne + held
-      if (this.isLead && this.jumpHeld && !this.onGround) {
-        const remaining = 1 - Math.min(1, this.holdFrames / (TC.MAX_HOLD_FRAMES || 18));
-        ctx.strokeStyle = `rgba(100,220,255,${0.3 + remaining * 0.6})`;
+      // Hold indicator: show while ascending OR while slow-falling with button held.
+      // Arc drains as holdFrames increases (shows how much slow-fall time remains).
+      const showIndicator = this.isLead && !this.onGround && (
+        this.vy < 0 ||                                              // ascending
+        (this.jumpHeld && this.holdFrames < TC.MAX_HOLD_FRAMES)    // slow-falling
+      );
+      if (showIndicator) {
+        const remaining = this.vy < 0
+          ? 1.0   // full arc while ascending (hold time not yet consumed)
+          : 1 - Math.min(1, this.holdFrames / (TC.MAX_HOLD_FRAMES || 28));
+        ctx.strokeStyle = `rgba(100,220,255,${0.35 + remaining * 0.55})`;
         ctx.lineWidth   = 2 + remaining * 2;
         ctx.beginPath();
         ctx.arc(30, 20, 26, -Math.PI / 2, -Math.PI / 2 + remaining * Math.PI * 2);

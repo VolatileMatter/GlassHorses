@@ -4,11 +4,11 @@
 const TravelConstants = {
 
   // Physics
-  GRAVITY: 0.38,             // Applied every frame while button NOT held (or after release)
-  HOLD_GRAVITY: 0.10,        // Weak gravity while button held = floaty ascent
-  JUMP_VELOCITY: -7.5,       // Reduced: obstacles are small, no need for huge jumps
-  MAX_HOLD_FRAMES: 18,       // Max frames hold can extend the jump
-  FALL_GRAVITY_MULT: 1.6,    // Extra gravity once vy > 0 (falling phase snappy)
+  GRAVITY: 0.55,             // Normal gravity — horse reaches apex quickly
+  HOLD_FALL_GRAVITY: 0.18,   // Reduced gravity when falling AND button still held = soft landing
+  JUMP_VELOCITY: -8.5,       // Upward snap on press
+  MAX_HOLD_FRAMES: 28,       // Max frames hold can slow the fall (only active while falling)
+  FALL_GRAVITY_MULT: 1.7,    // Extra gravity when falling WITHOUT hold = snappy drop
   GROUND_Y: 300,
   HORSE_SCALE: 0.72,
   HORSE_WIDTH: 60,

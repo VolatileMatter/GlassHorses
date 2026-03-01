@@ -278,7 +278,9 @@ const TravelGame = (() => {
     }
 
     if (gameOver && horses.every(h => h.deathTimer > 35)) {
-      window.TravelHUD.drawGameOver(ctx, canvas, score, window.TravelCheckpoints.getTotalCashed());
+      window.TravelHUD.drawGameOver(ctx, canvas, score,
+        window.TravelCheckpoints.getTotalCashed(),
+        window.TravelCheckpoints.getNumber());
     }
   }
 
