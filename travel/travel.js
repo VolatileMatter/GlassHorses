@@ -247,7 +247,6 @@ const TravelGame = (() => {
       pendingApples: window.TravelApples.getPending(),
       biomeLabel: window.HorseManager?.getActiveHerd()?.meta?.herd_name || '',
     });
-    window.TravelCheckpoints.drawProgressBar(ctx, canvas, score);
     window.TravelCheckpoints.draw(ctx, canvas);
 
     // If paused: overlay and stop updating

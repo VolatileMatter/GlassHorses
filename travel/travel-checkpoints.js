@@ -90,34 +90,7 @@ const TravelCheckpoints = (() => {
     fanfareTimer--;
   }
 
-  function drawProgressBar(ctx, canvas, score) {
-    const dist     = _cpDistMetres();
-    const prevCP   = nextCheckpointAt - dist;
-    const progress = Math.min(1, Math.max(0, (score - prevCP) / dist));
-
-    const TC       = window.TravelConstants;
-    const mPerT    = TC?.METRES_PER_TILE || 10;
-    const tilesDone = Math.floor(score / mPerT);
-    const tilesNext = Math.floor(nextCheckpointAt / mPerT);
-
-    const bx = canvas.width - 198, by = 6, bw = 188, bh = 10;
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(bx, by, bw, bh);
-
-    const grad = ctx.createLinearGradient(bx, 0, bx + bw, 0);
-    grad.addColorStop(0, '#4aff8a');
-    grad.addColorStop(1, '#ffe840');
-    ctx.fillStyle = grad;
-    ctx.fillRect(bx, by, bw * progress, bh);
-
-    ctx.fillStyle = '#fff';
-    ctx.font      = '11px monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText(`🏁 ${tilesDone}/${tilesNext}t`, canvas.width - 8, by + 9);
-    ctx.textAlign = 'left';
-  }
-
-  return { reset, check, draw, drawProgressBar, getNextCheckpointAt, getNumber, getTotalCashed };
+  return { reset, check, draw, getNextCheckpointAt, getNumber, getTotalCashed };
 })();
 
 window.TravelCheckpoints = TravelCheckpoints;
