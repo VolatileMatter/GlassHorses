@@ -29,18 +29,6 @@ const TravelHUD = (() => {
       ctx.fillText(biomeLabel, canvas.width / 2, 19);
     }
 
-    // Right side — metres traveled + metres to next checkpoint
-    const metresTravelled  = Math.floor(score);
-    const nextCP           = window.TravelCheckpoints?.getNextCheckpointAt() ?? 1000;
-    const metresUntilCP    = Math.max(0, Math.floor(nextCP - score));
-
-    ctx.fillStyle  = '#fff';
-    ctx.font       = 'bold 12px monospace';
-    ctx.textAlign  = 'right';
-    ctx.fillText(`${metresTravelled}m`, canvas.width - 10, 13);
-    ctx.fillStyle  = '#4aff8a';
-    ctx.font       = '11px monospace';
-    ctx.fillText(`🏁 ${metresUntilCP}m`, canvas.width - 10, 25);
     ctx.textAlign  = 'left';
   }
 
