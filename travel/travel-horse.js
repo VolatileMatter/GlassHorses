@@ -1,8 +1,8 @@
 // === TRAVEL HORSE ENTITY ===
 // Jump model: press = instant launch, hold = reduced gravity (floaty ascent),
 //             release = normal+fast gravity kicks in immediately.
-// Horizontal lunge: horse surges forward on takeoff, lerps back on landing.
-// Followers ripple in a wave.
+// Horizontal lunge: horse moves to LEAD_X+LUNGE_FORWARD while airborne,
+//                   very slowly drifts back to baseX after landing.
 
 const TravelHorse = (() => {
 
@@ -27,21 +27,21 @@ const TravelHorse = (() => {
       this.color     = sourceHorse.color || '#8B5E3C';
       this.sourceRef = sourceHorse;
 
-      this.baseX     = xPos;           // resting X — what we lunge away from / return to
+      this.baseX     = xPos;   // resting X position — horse drifts back here after landing
       this.x         = xPos;
       this.y         = TC.GROUND_Y - TC.HORSE_HEIGHT;
       this.vy        = 0;
       this.onGround  = true;
       this.isLead    = isLead;
 
-      this.dead      = false;
+      this.dead       = false;
       this.deathTimer = 0;
-      this.legPhase  = Math.random() * Math.PI * 2;
+      this.legPhase   = Math.random() * Math.PI * 2;
 
-      // Hold-jump state
-      this.jumpHeld      = false;
-      this.holdFrames    = 0;        // how many frames button has been held this jump
-      this.jumpLocked    = false;    // prevent double-jump mid-air
+      // Jump state
+      this.jumpHeld    = false;
+      this.holdFrames  = 0;
+      this.jumpLocked  = false;   // true while airborne, prevents double-jump
 
       // Coyote / buffer
       this._coyoteFrames = 0;
@@ -51,7 +51,6 @@ const TravelHorse = (() => {
       this._jumpQueue = [];
     }
 
-    // ---- Called on keydown / tap ----
     startJump() {
       if (this.dead || this.jumpLocked) return;
       const TC = _TC();
@@ -65,27 +64,22 @@ const TravelHorse = (() => {
 
     _doLaunch() {
       const TC = _TC();
-      this.vy           = TC.JUMP_VELOCITY;   // immediate upward snap
+      this.vy           = TC.JUMP_VELOCITY;
       this.onGround     = false;
       this.jumpLocked   = true;
       this.jumpHeld     = true;
       this.holdFrames   = 0;
       this._coyoteFrames = 0;
-      // Lunge forward
+      // Snap to lunge position immediately on takeoff
       this.x = this.baseX + TC.LUNGE_FORWARD;
     }
 
-    // ---- Called on keyup ----
     releaseJump() {
       this.jumpHeld  = false;
       this.holdFrames = 0;
-      // Return the current vy so followers can mirror magnitude
-      return this.vy;
     }
 
     scheduleFollowerJump(force, delayFrames) {
-      // force is the lead's vy at release — followers use a fixed launch velocity
-      // (the "force" param is kept for API compat but we use JUMP_VELOCITY)
       this._jumpQueue.push({ frames: delayFrames });
     }
 
@@ -99,19 +93,17 @@ const TravelHorse = (() => {
         return;
       }
 
-      // -- Coyote & buffer countdowns --
+      // Countdowns
       if (!this.onGround && this._coyoteFrames > 0) this._coyoteFrames--;
       if (this._jumpBuffer > 0) this._jumpBuffer--;
 
-      // -- Gravity selection --
+      // Gravity selection
       let grav;
       if (this.vy < 0 && this.jumpHeld && this.holdFrames < TC.MAX_HOLD_FRAMES) {
-        // Rising AND button held AND within hold window → soft gravity
-        grav = TC.HOLD_GRAVITY;
+        grav = TC.HOLD_GRAVITY;   // still rising AND button held → float
         this.holdFrames++;
       } else if (this.vy > 0) {
-        // Falling → punchy gravity
-        grav = TC.GRAVITY * TC.FALL_GRAVITY_MULT;
+        grav = TC.GRAVITY * TC.FALL_GRAVITY_MULT;   // falling → punchy
       } else {
         grav = TC.GRAVITY;
       }
@@ -119,7 +111,12 @@ const TravelHorse = (() => {
       this.vy += grav;
       this.y  += this.vy;
 
-      // -- Ground collision --
+      // While airborne: hold x at lunge position (horse surges forward the whole arc)
+      if (!this.onGround) {
+        this.x = this.baseX + TC.LUNGE_FORWARD;
+      }
+
+      // Ground collision
       const groundY = TC.GROUND_Y - TC.HORSE_HEIGHT;
       if (this.y >= groundY) {
         const wasAirborne = !this.onGround;
@@ -141,14 +138,14 @@ const TravelHorse = (() => {
         this.onGround = false;
       }
 
-      // -- Horizontal lunge return: lerp x back to baseX while on ground --
-      if (this.onGround && Math.abs(this.x - this.baseX) > 0.5) {
+      // After landing: very slowly drift x back to baseX
+      if (this.onGround && Math.abs(this.x - this.baseX) > 0.2) {
         this.x += (this.baseX - this.x) * TC.LUNGE_RETURN;
       } else if (this.onGround) {
         this.x = this.baseX;
       }
 
-      // -- Follower ripple queue --
+      // Follower ripple
       if (!this.isLead && this._jumpQueue.length) {
         this._jumpQueue = this._jumpQueue.map(j => ({ frames: j.frames - 1 }));
         const ready = this._jumpQueue.find(j => j.frames <= 0);
@@ -190,7 +187,6 @@ const TravelHorse = (() => {
 
       ctx.save();
       ctx.globalAlpha = alpha;
-      // Position: use scaled height offset so hooves sit on ground line
       ctx.translate(this.x, this.y + TC.HORSE_HEIGHT * (1 - scale));
       ctx.scale(scale, scale);
 
@@ -245,15 +241,14 @@ const TravelHorse = (() => {
       ctx.bezierCurveTo(-8, 15, -10, 30, -4, 38);
       ctx.stroke();
 
-      // Legs — stretch forward during lunge
-      const lungeOffset = (this.x - this.baseX) * 0.18;
+      // Legs
       ctx.strokeStyle = c;
       ctx.lineWidth   = 5;
       ctx.lineCap     = 'round';
-      _drawLeg(ctx, 42, 38, Math.sin(lp) * 12 + lungeOffset);
-      _drawLeg(ctx, 35, 38, Math.sin(lp + Math.PI) * 12 + lungeOffset * 0.5);
-      _drawLeg(ctx, 16, 38, Math.sin(lp + Math.PI) * 12 - lungeOffset * 0.5);
-      _drawLeg(ctx,  9, 38, Math.sin(lp) * 12 - lungeOffset);
+      _drawLeg(ctx, 42, 38, Math.sin(lp) * 12);
+      _drawLeg(ctx, 35, 38, Math.sin(lp + Math.PI) * 12);
+      _drawLeg(ctx, 16, 38, Math.sin(lp + Math.PI) * 12);
+      _drawLeg(ctx,  9, 38, Math.sin(lp) * 12);
 
       // Lead crown
       if (this.isLead && !this.dead) {
@@ -264,10 +259,9 @@ const TravelHorse = (() => {
         ctx.fill();
       }
 
-      // Hold indicator ring (replaces old charge arc — now shows how long hold lasts)
+      // Hold indicator: arc showing remaining hold time while airborne + held
       if (this.isLead && this.jumpHeld && !this.onGround) {
-        const holdRatio = Math.min(1, this.holdFrames / (TC.MAX_HOLD_FRAMES || 28));
-        const remaining = 1 - holdRatio;
+        const remaining = 1 - Math.min(1, this.holdFrames / (TC.MAX_HOLD_FRAMES || 18));
         ctx.strokeStyle = `rgba(100,220,255,${0.3 + remaining * 0.6})`;
         ctx.lineWidth   = 2 + remaining * 2;
         ctx.beginPath();
@@ -277,7 +271,7 @@ const TravelHorse = (() => {
 
       ctx.restore();
 
-      // Name tag (drawn outside the scaled context so font size stays consistent)
+      // Name tag
       if (!this.dead) {
         ctx.save();
         ctx.font      = '10px system-ui,sans-serif';

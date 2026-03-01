@@ -1,18 +1,23 @@
 // === TRAVEL CHECKPOINT SYSTEM ===
-// Every CHECKPOINT_DISTANCE score units: cash in apples, show fanfare.
+// Checkpoints every CHECKPOINT_KM kilometres (score is in metres).
+// Hitting a checkpoint saves all pending apples to the herd inventory and resets pending to 0.
 
 const TravelCheckpoints = (() => {
   let checkpointNumber  = 0;
-  let nextCheckpointAt  = 0;
+  let nextCheckpointAt  = 0;   // metres
   let fanfareTimer      = 0;
   let lastCashedApples  = 0;
   let totalCashedApples = 0;
   const FANFARE_FRAMES  = 110;
 
+  function _cpDist() {
+    const TC = window.TravelConstants;
+    return (TC && TC.CHECKPOINT_KM ? TC.CHECKPOINT_KM : 1) * 1000;  // metres
+  }
+
   function reset() {
-    const TC         = window.TravelConstants;
     checkpointNumber  = 0;
-    nextCheckpointAt  = TC ? TC.CHECKPOINT_DISTANCE : 1200;
+    nextCheckpointAt  = _cpDist();
     fanfareTimer      = 0;
     lastCashedApples  = 0;
     totalCashedApples = 0;
@@ -33,15 +38,13 @@ const TravelCheckpoints = (() => {
   }
 
   function _trigger(pendingApples) {
-    const TC = window.TravelConstants;
     checkpointNumber++;
-    const dist = TC ? TC.CHECKPOINT_DISTANCE : 1200;
-    nextCheckpointAt += dist * (1 + checkpointNumber * 0.2);
+    nextCheckpointAt += _cpDist();   // every km, evenly spaced
     fanfareTimer      = FANFARE_FRAMES;
     lastCashedApples  = pendingApples;
     totalCashedApples += pendingApples;
     _addToInventory(pendingApples);
-    console.log(`🏁 Checkpoint ${checkpointNumber}! +${pendingApples} apples`);
+    console.log(`🏁 Checkpoint ${checkpointNumber} (${checkpointNumber}km)! +${pendingApples} apples saved`);
   }
 
   function _addToInventory(count) {
@@ -69,26 +72,25 @@ const TravelCheckpoints = (() => {
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
     ctx.fillRect(0, by - 38, w, 90);
 
-    ctx.fillStyle  = '#ffe840';
-    ctx.font       = 'bold 34px monospace';
-    ctx.textAlign  = 'center';
+    ctx.fillStyle   = '#ffe840';
+    ctx.font        = 'bold 34px monospace';
+    ctx.textAlign   = 'center';
     ctx.shadowColor = '#ffe840'; ctx.shadowBlur = 16;
-    ctx.fillText(`CHECKPOINT ${checkpointNumber}`, w / 2, by);
+    ctx.fillText(`${checkpointNumber}km CHECKPOINT`, w / 2, by);
     ctx.shadowBlur = 0;
 
     ctx.fillStyle = '#fff';
     ctx.font      = '19px monospace';
-    ctx.fillText(`🍎 +${lastCashedApples} apples added to herd!`, w / 2, by + 34);
+    ctx.fillText(`🍎 +${lastCashedApples} apples saved to herd!`, w / 2, by + 34);
     ctx.restore();
 
     fanfareTimer--;
   }
 
   function drawProgressBar(ctx, canvas, score) {
-    const TC   = window.TravelConstants;
-    const dist = TC ? TC.CHECKPOINT_DISTANCE : 1200;
-    const prevCP = nextCheckpointAt - dist * (1 + Math.max(0, checkpointNumber - 1) * 0.2);
-    const range  = nextCheckpointAt - prevCP;
+    const dist    = _cpDist();
+    const prevCP  = nextCheckpointAt - dist;
+    const range   = dist;
     const progress = Math.min(1, Math.max(0, (score - prevCP) / range));
 
     const bx = canvas.width - 198, by = 6, bw = 188, bh = 10;
@@ -101,10 +103,13 @@ const TravelCheckpoints = (() => {
     ctx.fillStyle = grad;
     ctx.fillRect(bx, by, bw * progress, bh);
 
+    // Show distance in km
+    const kmDone = (score / 1000).toFixed(2);
+    const kmNext = (nextCheckpointAt / 1000).toFixed(0);
     ctx.fillStyle = '#fff';
     ctx.font      = '11px monospace';
     ctx.textAlign = 'right';
-    ctx.fillText(`🏁 CP${checkpointNumber + 1}`, canvas.width - 8, by + 9);
+    ctx.fillText(`🏁 ${kmDone}/${kmNext}km`, canvas.width - 8, by + 9);
     ctx.textAlign = 'left';
   }
 

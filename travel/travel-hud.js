@@ -12,7 +12,7 @@ const TravelHUD = (() => {
     ctx.fillStyle  = '#fff';
     ctx.font       = 'bold 14px monospace';
     ctx.textAlign  = 'left';
-    ctx.fillText(`Score: ${Math.floor(score)}`, 10, 19);
+    ctx.fillText(`Dist: ${(score/1000).toFixed(2)}km`, 10, 19);
     ctx.fillText(`Speed: ${gameSpeed.toFixed(1)}`, 118, 19);
 
     const alive = horses.filter(h => !h.dead).length;
@@ -72,7 +72,7 @@ const TravelHUD = (() => {
 
     ctx.fillStyle = '#fff';
     ctx.font      = '21px monospace';
-    ctx.fillText(`Distance: ${Math.floor(score)}`, canvas.width / 2, canvas.height / 2 + 2);
+    ctx.fillText(`Distance: ${(score/1000).toFixed(2)}km`, canvas.width / 2, canvas.height / 2 + 2);
 
     ctx.fillStyle = '#ff9966';
     ctx.font      = '17px monospace';

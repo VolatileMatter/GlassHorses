@@ -6,17 +6,17 @@ const TravelConstants = {
   // Physics
   GRAVITY: 0.38,             // Applied every frame while button NOT held (or after release)
   HOLD_GRAVITY: 0.10,        // Weak gravity while button held = floaty ascent
-  JUMP_VELOCITY: -11,        // Instant upward velocity on press (always fires immediately)
-  MAX_HOLD_FRAMES: 28,       // Max frames hold can counteract gravity
+  JUMP_VELOCITY: -7.5,       // Reduced: obstacles are small, no need for huge jumps
+  MAX_HOLD_FRAMES: 18,       // Max frames hold can extend the jump
   FALL_GRAVITY_MULT: 1.6,    // Extra gravity once vy > 0 (falling phase snappy)
   GROUND_Y: 300,
-  HORSE_SCALE: 0.72,         // Draw horses at 72% size so more of the scene is visible
-  HORSE_WIDTH: 60,           // Logical hitbox (before scale)
+  HORSE_SCALE: 0.72,
+  HORSE_WIDTH: 60,
   HORSE_HEIGHT: 50,
 
-  // Horizontal lunge on jump
-  LUNGE_FORWARD: 28,         // Pixels horse surges forward on jump
-  LUNGE_RETURN: 0.08,        // Lerp speed back to base X per frame after landing
+  // Horizontal lunge on jump — horse moves forward while airborne, drifts back slowly on ground
+  LUNGE_FORWARD: 32,         // Pixels ahead of baseX while in the air
+  LUNGE_RETURN: 0.018,       // Very slow lerp back to baseX after landing (feels gradual)
 
   // "Coyote time" — frames after leaving ground the player can still jump
   COYOTE_FRAMES: 7,
@@ -25,13 +25,21 @@ const TravelConstants = {
 
   // Lead horse horizontal position (25% of 800px canvas = 200)
   LEAD_X: 200,
-  // Pixel gap between each trailing horse — spread them out so the train is visible
+  // Pixel gap between each trailing horse
   HORSE_SPACING: 52,
 
-  // Speed
-  SPEED_INITIAL: 4.5,
+  // Speed — 15 km/h base. Score units are metres: 60fps * SPEED_INITIAL / PIXELS_PER_METRE
+  // At 60fps, to cover 1000m (1km) in real-time we need score units to match.
+  // We'll treat 1 score unit = 1 metre. SPEED drives pixels/frame; score += gameSpeed * scale.
+  // PIXELS_PER_METRE: score scale factor so 1000 score = 1 km
+  SPEED_INITIAL: 4.5,        // pixels/frame at 60fps ≈ 270px/s → calibrated via SCORE_SCALE
   SPEED_INCREMENT: 0.0004,
   SPEED_MAX: 12,
+  // Score is accumulated as: score += gameSpeed * SCORE_SCALE each frame
+  // At 60fps and speed=4.5: 4.5 * SCORE_SCALE * 60 = metres per second
+  // 15 km/h = 4.167 m/s → SCORE_SCALE = 4.167 / (4.5 * 60) ≈ 0.01543
+  SCORE_SCALE: 0.01543,      // converts px/frame → metres/frame at reference speed
+  CHECKPOINT_KM: 1,          // checkpoint every N kilometres
 
   // Terrain speed multipliers
   TERRAIN_SPEED: {
@@ -43,7 +51,7 @@ const TravelConstants = {
   },
 
   // Collectibles / checkpoints
-  CHECKPOINT_DISTANCE: 1200,
+  // CHECKPOINT_DISTANCE is now computed dynamically: CHECKPOINT_KM * 1000
   APPLE_SPAWN_CHANCE: 0.003,
 
   // Biomes

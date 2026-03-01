@@ -8,11 +8,11 @@ const TravelGame = (() => {
   let horses        = [];
   let gameSpeed     = 0;
   let frameCount    = 0;
-  let score         = 0;
+  let score         = 0;        // metres travelled
   let animFrameId   = null;
   let gameOver      = false;
   let currentBiome  = 'plains';
-  let spaceHeld     = false;
+  let inputHeld     = false;    // true while space OR mouse button is held
 
   // ---- Utility ----
   function rectsOverlap(a, b) {
@@ -34,8 +34,8 @@ const TravelGame = (() => {
     const pool     = eligible.length > 0 ? eligible : source;
 
     const TC      = window.TravelConstants;
-    const leadX   = TC.LEAD_X   || 200;  // ~25% of 800px canvas
-    const spacing = TC.HORSE_SPACING || 22;
+    const leadX   = TC.LEAD_X      || 200;
+    const spacing = TC.HORSE_SPACING || 52;
     horses = pool.map((h, i) =>
       new window.TravelHorse.Horse(h, leadX - i * spacing, i === 0)
     );
@@ -48,7 +48,7 @@ const TravelGame = (() => {
     score      = 0;
     gameSpeed  = TC.SPEED_INITIAL;
     gameOver   = false;
-    spaceHeld  = false;
+    inputHeld  = false;
 
     window.TravelBackground.init(currentBiome);
     window.TravelObstacles.reset(currentBiome);
@@ -57,51 +57,69 @@ const TravelGame = (() => {
     buildHorses();
   }
 
-  // ---- Input ----
+  // ---- Shared jump trigger ----
+  function _triggerJump() {
+    if (inputHeld) return;   // already held, don't re-trigger
+    inputHeld = true;
+    const lead = _getLead();
+    if (!lead) return;
+    lead.startJump();
+    // Ripple: followers jump at 30-frame intervals (tight enough to all clear obstacles)
+    horses.forEach((h, i) => {
+      if (!h.isLead && !h.dead) h.scheduleFollowerJump(null, i * 30);
+    });
+  }
+
+  function _releaseJump() {
+    if (!inputHeld) return;
+    inputHeld = false;
+    const lead = _getLead();
+    if (lead) lead.releaseJump();
+  }
+
+  // ---- Keyboard input ----
   function onKeyDown(e) {
     if (e.code !== 'Space' && e.code !== 'ArrowUp') return;
     e.preventDefault();
     if (gameOver) { startGame(); return; }
-    if (!spaceHeld) {
-      spaceHeld = true;
-      const lead = _getLead();
-      if (lead) {
-        lead.startJump();
-        // Schedule follower ripple immediately on keydown
-        horses.forEach((h, i) => {
-          if (!h.isLead && !h.dead) h.scheduleFollowerJump(null, i * 70);
-        });
-      }
-    }
+    _triggerJump();
   }
 
   function onKeyUp(e) {
     if (e.code !== 'Space' && e.code !== 'ArrowUp') return;
     e.preventDefault();
-    if (!spaceHeld) return;
-    spaceHeld = false;
-    const lead = _getLead();
-    if (lead) lead.releaseJump();
+    _releaseJump();
   }
 
-  function onTap() {
+  // ---- Mouse input (LMB identical to Space) ----
+  function onMouseDown(e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
     if (gameOver) { startGame(); return; }
-    const lead = _getLead();
-    if (lead) {
-      lead.startJump();
-      horses.forEach((h, i) => {
-        if (!h.isLead && !h.dead) h.scheduleFollowerJump(null, i * 70);
-      });
-      // For tap: release immediately so it's a short hop
-      setTimeout(() => { if (lead) lead.releaseJump(); }, 80);
-    }
+    _triggerJump();
+  }
+
+  function onMouseUp(e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    _releaseJump();
+  }
+
+  // ---- Touch input ----
+  function onTouchStart(e) {
+    e.preventDefault();
+    if (gameOver) { startGame(); return; }
+    _triggerJump();
+  }
+
+  function onTouchEnd(e) {
+    e.preventDefault();
+    _releaseJump();
   }
 
   function _getLead() {
     return horses.find(h => h.isLead && !h.dead) || null;
   }
-
-  // _fireJump removed — jump fires on keydown, release just ends hold
 
   function _promoteLead() {
     const next = horses.find(h => !h.dead && !h.isLead);
@@ -112,26 +130,26 @@ const TravelGame = (() => {
   function gameLoop() {
     animFrameId = requestAnimationFrame(gameLoop);
 
-    // Guard: if modules vanished somehow, just draw black and wait
     if (!window.TravelConstants || !window.TravelBackground) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     frameCount++;
 
-    const TC     = window.TravelConstants;
+    const TC      = window.TravelConstants;
     const allDead = horses.length > 0 && horses.every(h => h.dead);
 
     if (!allDead && !gameOver) {
       const terrainMult = (TC.TERRAIN_SPEED && TC.TERRAIN_SPEED[currentBiome]) || 1.0;
       gameSpeed = Math.min(TC.SPEED_MAX, (TC.SPEED_INITIAL + frameCount * TC.SPEED_INCREMENT) * terrainMult);
-      score    += gameSpeed * 0.045;
+
+      // Score in metres: scale factor converts px/frame → metres/frame
+      const scoreScale = TC.SCORE_SCALE || 0.01543;
+      score += gameSpeed * scoreScale;
 
       window.TravelBackground.update(gameSpeed);
       window.TravelObstacles.update(canvas.width, gameSpeed);
       window.TravelApples.update(canvas.width, gameSpeed);
       horses.forEach(h => h.update());
-
-      // Hold state is managed inside Horse.update() via jumpHeld flag
 
       // Collision: only lead horse vs rocks
       const lead = _getLead();
@@ -150,29 +168,23 @@ const TravelGame = (() => {
       const newLead = _getLead();
       if (newLead) window.TravelApples.checkCollision(newLead);
 
-      // Checkpoint
+      // Checkpoint check (score is in metres; checkpoints every CHECKPOINT_KM * 1000)
       if (window.TravelCheckpoints.check(score, window.TravelApples.getPending())) {
         window.TravelApples.clearPending();
       }
     }
 
     if (allDead && !gameOver) {
-      // Cash remaining apples on run end
-      const pending = window.TravelApples.getPending();
-      if (pending > 0) {
-        window.TravelCheckpoints.check(window.TravelCheckpoints.getNextCheckpointAt(), pending);
-        window.TravelApples.clearPending();
-      }
+      // Cash remaining apples on run end (no checkpoint save — apples lost on death)
       gameOver = true;
     }
 
-    // Draw everything
+    // Draw
     window.TravelBackground.draw(ctx, canvas, frameCount, gameSpeed);
     window.TravelObstacles.draw(ctx);
     window.TravelApples.draw(ctx);
     horses.forEach(h => h.draw(ctx));
 
-    // HUD
     window.TravelHUD.draw(ctx, canvas, {
       score,
       gameSpeed,
@@ -194,7 +206,6 @@ const TravelGame = (() => {
     container    = parentEl;
     currentBiome = biomeId || 'plains';
 
-    // Clean old DOM
     Array.from(container.querySelectorAll('canvas, p')).forEach(el => el.remove());
 
     canvas = document.createElement('canvas');
@@ -207,19 +218,23 @@ const TravelGame = (() => {
       'border:2px solid rgba(0,255,255,0.25)',
       'border-radius:12px',
       'cursor:pointer',
+      'user-select:none',
     ].join(';');
     ctx = canvas.getContext('2d');
     container.appendChild(canvas);
 
     const tip = document.createElement('p');
     tip.style.cssText = 'color:#888;font-size:0.82em;margin:7px 0 0;text-align:center;';
-    tip.textContent   = 'Hold SPACE for a bigger jump — 👑 lead horse must clear rocks!';
+    tip.textContent   = 'Hold SPACE or click — 👑 lead horse must clear rocks!';
     container.appendChild(tip);
 
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup',   onKeyUp);
-    canvas.addEventListener('click', onTap);
-    canvas.addEventListener('touchstart', e => { e.preventDefault(); onTap(); }, { passive: false });
+    canvas.addEventListener('mousedown',  onMouseDown);
+    canvas.addEventListener('mouseup',    onMouseUp);
+    canvas.addEventListener('mouseleave', onMouseUp);          // release if cursor leaves
+    canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+    canvas.addEventListener('touchend',   onTouchEnd,   { passive: false });
 
     if (animFrameId) cancelAnimationFrame(animFrameId);
     startGame();
