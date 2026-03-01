@@ -31,48 +31,8 @@ const TravelHUD = (() => {
     ctx.fillStyle  = 'rgba(255,255,255,0.5)';
     ctx.font       = '11px monospace';
     ctx.textAlign  = 'right';
-    ctx.fillText('Hold SPACE = float down', canvas.width - 10, 19);
+    ctx.fillText('Hold to float down', canvas.width - 10, 19);
     ctx.textAlign  = 'left';
-
-    // Jump float bar — visible while lead is airborne (ascending or slow-falling)
-    const lead = horses.find(h => h.isLead && !h.dead);
-    if (lead && !lead.onGround) {
-      const TC = window.TravelConstants;
-      const isAscending  = lead.vy < 0;
-      const isSlowFall   = lead.jumpHeld && lead.holdFrames < (TC?.MAX_HOLD_FRAMES || 28);
-      if (isAscending || isSlowFall) {
-        // remaining = 1.0 while ascending; drains during slow-fall
-        const remaining = isAscending
-          ? 1.0
-          : 1 - Math.min(1, lead.holdFrames / (TC?.MAX_HOLD_FRAMES || 28));
-        _drawFloatBar(ctx, canvas, remaining, isAscending);
-      }
-    }
-  }
-
-  function _drawFloatBar(ctx, canvas, remaining, isAscending) {
-    const bx = 10, by = canvas.height - 26, bw = 160, bh = 13;
-    ctx.fillStyle = 'rgba(0,0,0,0.65)';
-    ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
-
-    const grad = ctx.createLinearGradient(bx, 0, bx + bw, 0);
-    if (isAscending) {
-      // Bright solid while rising
-      grad.addColorStop(0, '#44ddff');
-      grad.addColorStop(1, '#aaffee');
-    } else {
-      // Drains yellow→orange as slow-fall runs out
-      grad.addColorStop(0,   '#44aaff');
-      grad.addColorStop(0.5, '#88eeff');
-      grad.addColorStop(1,   '#fffb40');
-    }
-    ctx.fillStyle = grad;
-    ctx.fillRect(bx, by, bw * remaining, bh);
-
-    ctx.fillStyle  = 'rgba(255,255,255,0.8)';
-    ctx.font       = '9px monospace';
-    ctx.textAlign  = 'left';
-    ctx.fillText(isAscending ? 'RISING' : 'HOLD TO FLOAT', bx + 3, by + bh - 2);
   }
 
   function drawGameOver(ctx, canvas, score, totalCashedApples, lastCheckpointKm) {

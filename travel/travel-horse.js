@@ -270,20 +270,43 @@ const TravelHorse = (() => {
         ctx.fill();
       }
 
-      // Hold indicator: show while ascending OR while slow-falling with button held.
-      // Arc drains as holdFrames increases (shows how much slow-fall time remains).
-      const showIndicator = this.isLead && !this.onGround && (
-        this.vy < 0 ||                                              // ascending
-        (this.jumpHeld && this.holdFrames < TC.MAX_HOLD_FRAMES)    // slow-falling
-      );
-      if (showIndicator) {
-        const remaining = this.vy < 0
-          ? 1.0   // full arc while ascending (hold time not yet consumed)
-          : 1 - Math.min(1, this.holdFrames / (TC.MAX_HOLD_FRAMES || 28));
-        ctx.strokeStyle = `rgba(100,220,255,${0.35 + remaining * 0.55})`;
-        ctx.lineWidth   = 2 + remaining * 2;
+      // Jump height indicator: green circle fills as horse rises, drains as it falls.
+      // Uses actual vertical position relative to ground as the fill ratio.
+      if (this.isLead && !this.onGround) {
+        const TC2      = _TC();
+        const groundY  = TC2.GROUND_Y - TC2.HORSE_HEIGHT;
+        // Peak height is approximately v²/2g from launch
+        const peakHeight = (TC2.JUMP_VELOCITY * TC2.JUMP_VELOCITY) / (2 * TC2.GRAVITY);
+        const currentHeight = Math.max(0, groundY - this.y);   // pixels above ground
+        const ratio = Math.min(1, currentHeight / peakHeight);  // 0=ground, 1=apex
+
+        const cx = 30, cy = 22, r = 13;
+        // Background circle (dark)
         ctx.beginPath();
-        ctx.arc(30, 20, 26, -Math.PI / 2, -Math.PI / 2 + remaining * Math.PI * 2);
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fill();
+
+        // Green fill — arc from bottom, sweeps clockwise as ratio increases
+        // Filled via clipping a rect that grows upward
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.clip();
+        const fillH = r * 2 * ratio;
+        const fillY = cy + r - fillH;
+        // Color shifts green → bright yellow-green at apex
+        const g = Math.floor(180 + 75 * ratio);
+        const rb = Math.floor(50 * (1 - ratio));
+        ctx.fillStyle = `rgba(${rb}, ${g}, ${rb}, 0.85)`;
+        ctx.fillRect(cx - r, fillY, r * 2, fillH);
+        ctx.restore();
+
+        // Circle border
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(80, 255, 80, ${0.5 + ratio * 0.5})`;
+        ctx.lineWidth   = 1.5;
         ctx.stroke();
       }
 
