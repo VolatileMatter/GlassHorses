@@ -290,7 +290,7 @@ const TravelGame = (() => {
               _promoteLead();
               // Grace: give all surviving followers 10 frames of immunity
               horses.forEach(h => {
-                if (!h.dead) h.immunityFrames = 600; // 10 seconds at 60fps
+                if (!h.dead) h.immunityFrames = 120; // 2 seconds at 60fps
               });
               break;
             }

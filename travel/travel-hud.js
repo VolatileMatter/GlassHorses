@@ -9,6 +9,7 @@ const TravelHUD = (() => {
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(0, 0, canvas.width, 28);
 
+    // Left side — tile, speed, horses, apples
     ctx.fillStyle  = '#fff';
     ctx.font       = 'bold 14px monospace';
     ctx.textAlign  = 'left';
@@ -28,10 +29,18 @@ const TravelHUD = (() => {
       ctx.fillText(biomeLabel, canvas.width / 2, 19);
     }
 
-    ctx.fillStyle  = 'rgba(255,255,255,0.5)';
-    ctx.font       = '11px monospace';
+    // Right side — metres traveled + metres to next checkpoint
+    const metresTravelled  = Math.floor(score);
+    const nextCP           = window.TravelCheckpoints?.getNextCheckpointAt() ?? 1000;
+    const metresUntilCP    = Math.max(0, Math.floor(nextCP - score));
+
+    ctx.fillStyle  = '#fff';
+    ctx.font       = 'bold 12px monospace';
     ctx.textAlign  = 'right';
-    ctx.fillText('Hold to float down', canvas.width - 10, 19);
+    ctx.fillText(`${metresTravelled}m`, canvas.width - 10, 13);
+    ctx.fillStyle  = '#4aff8a';
+    ctx.font       = '11px monospace';
+    ctx.fillText(`🏁 ${metresUntilCP}m`, canvas.width - 10, 25);
     ctx.textAlign  = 'left';
   }
 
