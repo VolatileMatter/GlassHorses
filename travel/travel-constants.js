@@ -4,18 +4,38 @@
 const TravelConstants = {
 
   // Physics
-  GRAVITY: 0.5,
-  JUMP_FORCE_MIN: -10,
+  GRAVITY: 0.48,
+  FALL_GRAVITY_MULT: 1.85,   // Gravity multiplier when falling (vy > 0) — snappy landing
+  JUMP_FORCE_MIN: -9,
   JUMP_FORCE_MAX: -17,
   JUMP_HOLD_FRAMES: 22,
   GROUND_Y: 300,
   HORSE_WIDTH: 60,
   HORSE_HEIGHT: 50,
 
+  // "Coyote time" — frames after leaving ground the player can still jump
+  COYOTE_FRAMES: 7,
+  // "Jump buffering" — frames before landing that a queued jump will auto-fire
+  JUMP_BUFFER_FRAMES: 8,
+
+  // Lead horse horizontal position (25% of 800px canvas = 200)
+  LEAD_X: 200,
+  // Pixel gap between each trailing horse
+  HORSE_SPACING: 22,
+
   // Speed
   SPEED_INITIAL: 4.5,
   SPEED_INCREMENT: 0.0004,
   SPEED_MAX: 12,
+
+  // Terrain speed multipliers
+  TERRAIN_SPEED: {
+    plains:  1.0,
+    forest:  1.0,
+    desert:  0.85,   // sand — sluggish
+    swamp:   0.6,    // water — heavy
+    downhill: 1.2,
+  },
 
   // Collectibles / checkpoints
   CHECKPOINT_DISTANCE: 1200,

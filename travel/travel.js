@@ -33,8 +33,9 @@ const TravelGame = (() => {
     const eligible = source.filter(h => !h.travelExhausted);
     const pool     = eligible.length > 0 ? eligible : source;
 
-    const leadX  = 320;
-    const spacing = 20;
+    const TC      = window.TravelConstants;
+    const leadX   = TC.LEAD_X   || 200;  // ~25% of 800px canvas
+    const spacing = TC.HORSE_SPACING || 22;
     horses = pool.map((h, i) =>
       new window.TravelHorse.Horse(h, leadX - i * spacing, i === 0)
     );
@@ -93,7 +94,8 @@ const TravelGame = (() => {
     const force = lead.releaseJump();
     if (force === undefined) return;
     horses.forEach((h, i) => {
-      if (!h.isLead && !h.dead) h.scheduleFollowerJump(force, i * 55);
+      // Ripple wave: each follower waits progressively longer, creating a fluid "S-curve" wave
+      if (!h.isLead && !h.dead) h.scheduleFollowerJump(force, i * 70);
     });
   }
 
@@ -116,7 +118,8 @@ const TravelGame = (() => {
     const allDead = horses.length > 0 && horses.every(h => h.dead);
 
     if (!allDead && !gameOver) {
-      gameSpeed = Math.min(TC.SPEED_MAX, TC.SPEED_INITIAL + frameCount * TC.SPEED_INCREMENT);
+      const terrainMult = (TC.TERRAIN_SPEED && TC.TERRAIN_SPEED[currentBiome]) || 1.0;
+      gameSpeed = Math.min(TC.SPEED_MAX, (TC.SPEED_INITIAL + frameCount * TC.SPEED_INCREMENT) * terrainMult);
       score    += gameSpeed * 0.045;
 
       window.TravelBackground.update(gameSpeed);

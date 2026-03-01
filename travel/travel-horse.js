@@ -1,6 +1,12 @@
 // === TRAVEL HORSE ENTITY ===
-// Lead horse must clear obstacles. Followers mirror with staggered delay.
+// Lead horse must clear obstacles. Followers mirror with staggered "ripple" delay.
 // Charged jump: hold space to build power, release to launch.
+//
+// Improvements:
+//   • Coyote time    — jump still works a few frames after leaving ground
+//   • Jump buffering — pre-press is honoured the moment hooves land
+//   • Gravity scaling — fall faster than rise (snappy, feels responsive)
+//   • Elastic "string" follower physics — beautiful ripple wave effect
 
 const TravelHorse = (() => {
 
@@ -41,13 +47,25 @@ const TravelHorse = (() => {
       this.jumpHoldFrames = 0;
       this.jumpLocked     = false;
 
-      // Follower queued jumps
+      // Coyote time — frames remaining where jump is still allowed after leaving ground
+      this._coyoteFrames  = 0;
+      // Jump buffer — frames remaining where a pre-press will auto-fire on landing
+      this._jumpBuffer    = 0;
+
+      // Follower queued jumps (ripple wave)
       this._jumpQueue = [];
     }
 
     // ---- Lead: begin charging ----
     startJump() {
-      if (!this.onGround || this.dead || this.jumpLocked) return;
+      if (this.dead || this.jumpLocked) return;
+      const canJump = this.onGround || this._coyoteFrames > 0;
+      if (!canJump) {
+        // Buffer the input so it fires on landing
+        const TC = _TC();
+        this._jumpBuffer = TC.JUMP_BUFFER_FRAMES;
+        return;
+      }
       this.jumpHeld       = true;
       this.jumpHoldFrames = 0;
     }
@@ -58,17 +76,20 @@ const TravelHorse = (() => {
       const TC    = _TC();
       const ratio = Math.min(1, this.jumpHoldFrames / TC.JUMP_HOLD_FRAMES);
       const force = TC.JUMP_FORCE_MIN + (TC.JUMP_FORCE_MAX - TC.JUMP_FORCE_MIN) * ratio;
-      if (this.onGround) {
-        this.vy         = force;
-        this.onGround   = false;
-        this.jumpLocked = true;
+
+      const canJump = this.onGround || this._coyoteFrames > 0;
+      if (canJump) {
+        this.vy            = force;
+        this.onGround      = false;
+        this.jumpLocked    = true;
+        this._coyoteFrames = 0;
       }
       this.jumpHeld       = false;
       this.jumpHoldFrames = 0;
       return force;
     }
 
-    // ---- Follower: schedule a mirrored jump ----
+    // ---- Follower: schedule a mirrored jump with ripple delay ----
     scheduleFollowerJump(force, delayFrames) {
       this._jumpQueue.push({ frames: delayFrames, force });
     }
@@ -83,23 +104,50 @@ const TravelHorse = (() => {
         return;
       }
 
-      // Charge accumulation while key held on ground
-      if (this.isLead && this.jumpHeld && this.onGround) {
+      // Charge accumulation while key held on ground (or coyote)
+      if (this.isLead && this.jumpHeld && (this.onGround || this._coyoteFrames > 0)) {
         this.jumpHoldFrames = Math.min(TC.JUMP_HOLD_FRAMES, this.jumpHoldFrames + 1);
       }
 
-      // Physics
-      this.vy += TC.GRAVITY;
-      this.y  += this.vy;
-
-      if (this.y >= TC.GROUND_Y - TC.HORSE_HEIGHT) {
-        this.y        = TC.GROUND_Y - TC.HORSE_HEIGHT;
-        this.vy       = 0;
-        this.onGround = true;
-        this.jumpLocked = false;
+      // Coyote time countdown
+      if (!this.onGround && this._coyoteFrames > 0) {
+        this._coyoteFrames--;
       }
 
-      // Process follower jump queue
+      // Jump buffer countdown
+      if (this._jumpBuffer > 0) {
+        this._jumpBuffer--;
+      }
+
+      // Gravity — fall faster than rise for snappy feel
+      const gravMult = (this.vy > 0) ? (TC.FALL_GRAVITY_MULT || 1.85) : 1.0;
+      this.vy += TC.GRAVITY * gravMult;
+      this.y  += this.vy;
+
+      const groundY = TC.GROUND_Y - TC.HORSE_HEIGHT;
+      if (this.y >= groundY) {
+        const wasAirborne = !this.onGround;
+        this.y        = groundY;
+        this.vy       = 0;
+        this.onGround = true;
+        this.jumpLocked   = false;
+        this._coyoteFrames = TC.COYOTE_FRAMES || 7;
+
+        // Fire buffered jump the moment we land
+        if (this.isLead && wasAirborne && this._jumpBuffer > 0) {
+          this._jumpBuffer = 0;
+          this.jumpHeld       = true;
+          this.jumpHoldFrames = 0;
+        }
+      } else {
+        // Just left the ground — start coyote timer
+        if (this.onGround) {
+          this._coyoteFrames = TC.COYOTE_FRAMES || 7;
+        }
+        this.onGround = false;
+      }
+
+      // Process follower ripple-wave jump queue
       if (!this.isLead && this._jumpQueue.length) {
         this._jumpQueue = this._jumpQueue.map(j => ({ ...j, frames: j.frames - 1 }));
         const ready = this._jumpQueue.find(j => j.frames <= 0);
