@@ -65,7 +65,13 @@ const TravelGame = (() => {
     if (!spaceHeld) {
       spaceHeld = true;
       const lead = _getLead();
-      if (lead) lead.startJump();
+      if (lead) {
+        lead.startJump();
+        // Schedule follower ripple immediately on keydown
+        horses.forEach((h, i) => {
+          if (!h.isLead && !h.dead) h.scheduleFollowerJump(null, i * 70);
+        });
+      }
     }
   }
 
@@ -74,30 +80,28 @@ const TravelGame = (() => {
     e.preventDefault();
     if (!spaceHeld) return;
     spaceHeld = false;
-    _fireJump();
+    const lead = _getLead();
+    if (lead) lead.releaseJump();
   }
 
   function onTap() {
     if (gameOver) { startGame(); return; }
     const lead = _getLead();
-    if (lead) { lead.startJump(); lead.jumpHoldFrames = 0; }
-    _fireJump();
+    if (lead) {
+      lead.startJump();
+      horses.forEach((h, i) => {
+        if (!h.isLead && !h.dead) h.scheduleFollowerJump(null, i * 70);
+      });
+      // For tap: release immediately so it's a short hop
+      setTimeout(() => { if (lead) lead.releaseJump(); }, 80);
+    }
   }
 
   function _getLead() {
     return horses.find(h => h.isLead && !h.dead) || null;
   }
 
-  function _fireJump() {
-    const lead = _getLead();
-    if (!lead) return;
-    const force = lead.releaseJump();
-    if (force === undefined) return;
-    horses.forEach((h, i) => {
-      // Ripple wave: each follower waits progressively longer, creating a fluid "S-curve" wave
-      if (!h.isLead && !h.dead) h.scheduleFollowerJump(force, i * 70);
-    });
-  }
+  // _fireJump removed — jump fires on keydown, release just ends hold
 
   function _promoteLead() {
     const next = horses.find(h => !h.dead && !h.isLead);
@@ -127,11 +131,7 @@ const TravelGame = (() => {
       window.TravelApples.update(canvas.width, gameSpeed);
       horses.forEach(h => h.update());
 
-      // Keep charging if space still held
-      if (spaceHeld) {
-        const lead = _getLead();
-        if (lead) lead.jumpHoldFrames = Math.min(TC.JUMP_HOLD_FRAMES, lead.jumpHoldFrames + 1);
-      }
+      // Hold state is managed inside Horse.update() via jumpHeld flag
 
       // Collision: only lead horse vs rocks
       const lead = _getLead();

@@ -1,12 +1,8 @@
 // === TRAVEL HORSE ENTITY ===
-// Lead horse must clear obstacles. Followers mirror with staggered "ripple" delay.
-// Charged jump: hold space to build power, release to launch.
-//
-// Improvements:
-//   • Coyote time    — jump still works a few frames after leaving ground
-//   • Jump buffering — pre-press is honoured the moment hooves land
-//   • Gravity scaling — fall faster than rise (snappy, feels responsive)
-//   • Elastic "string" follower physics — beautiful ripple wave effect
+// Jump model: press = instant launch, hold = reduced gravity (floaty ascent),
+//             release = normal+fast gravity kicks in immediately.
+// Horizontal lunge: horse surges forward on takeoff, lerps back on landing.
+// Followers ripple in a wave.
 
 const TravelHorse = (() => {
 
@@ -26,72 +22,71 @@ const TravelHorse = (() => {
   class Horse {
     constructor(sourceHorse, xPos, isLead) {
       const TC = _TC();
-      this.id         = sourceHorse.id || sourceHorse.barn_name;
-      this.name       = sourceHorse.barn_name || sourceHorse.name || 'Horse';
-      this.color      = sourceHorse.color || '#8B5E3C';
-      this.sourceRef  = sourceHorse;
+      this.id        = sourceHorse.id || sourceHorse.barn_name;
+      this.name      = sourceHorse.barn_name || sourceHorse.name || 'Horse';
+      this.color     = sourceHorse.color || '#8B5E3C';
+      this.sourceRef = sourceHorse;
 
-      this.x          = xPos;
-      this.y          = TC.GROUND_Y - TC.HORSE_HEIGHT;
-      this.vy         = 0;
-      this.onGround   = true;
-      this.isLead     = isLead;
+      this.baseX     = xPos;           // resting X — what we lunge away from / return to
+      this.x         = xPos;
+      this.y         = TC.GROUND_Y - TC.HORSE_HEIGHT;
+      this.vy        = 0;
+      this.onGround  = true;
+      this.isLead    = isLead;
 
-      this.dead       = false;
+      this.dead      = false;
       this.deathTimer = 0;
+      this.legPhase  = Math.random() * Math.PI * 2;
 
-      this.legPhase   = Math.random() * Math.PI * 2;
+      // Hold-jump state
+      this.jumpHeld      = false;
+      this.holdFrames    = 0;        // how many frames button has been held this jump
+      this.jumpLocked    = false;    // prevent double-jump mid-air
 
-      // Jump charge (lead horse)
-      this.jumpHeld       = false;
-      this.jumpHoldFrames = 0;
-      this.jumpLocked     = false;
+      // Coyote / buffer
+      this._coyoteFrames = 0;
+      this._jumpBuffer   = 0;
 
-      // Coyote time — frames remaining where jump is still allowed after leaving ground
-      this._coyoteFrames  = 0;
-      // Jump buffer — frames remaining where a pre-press will auto-fire on landing
-      this._jumpBuffer    = 0;
-
-      // Follower queued jumps (ripple wave)
+      // Follower ripple queue
       this._jumpQueue = [];
     }
 
-    // ---- Lead: begin charging ----
+    // ---- Called on keydown / tap ----
     startJump() {
       if (this.dead || this.jumpLocked) return;
+      const TC = _TC();
       const canJump = this.onGround || this._coyoteFrames > 0;
       if (!canJump) {
-        // Buffer the input so it fires on landing
-        const TC = _TC();
         this._jumpBuffer = TC.JUMP_BUFFER_FRAMES;
         return;
       }
-      this.jumpHeld       = true;
-      this.jumpHoldFrames = 0;
+      this._doLaunch();
     }
 
-    // ---- Lead: release to launch — returns force so followers can mirror ----
+    _doLaunch() {
+      const TC = _TC();
+      this.vy           = TC.JUMP_VELOCITY;   // immediate upward snap
+      this.onGround     = false;
+      this.jumpLocked   = true;
+      this.jumpHeld     = true;
+      this.holdFrames   = 0;
+      this._coyoteFrames = 0;
+      // Lunge forward
+      this.x = this.baseX + TC.LUNGE_FORWARD;
+    }
+
+    // ---- Called on keyup ----
     releaseJump() {
-      if (!this.jumpHeld || this.dead) { this.jumpHeld = false; return undefined; }
-      const TC    = _TC();
-      const ratio = Math.min(1, this.jumpHoldFrames / TC.JUMP_HOLD_FRAMES);
-      const force = TC.JUMP_FORCE_MIN + (TC.JUMP_FORCE_MAX - TC.JUMP_FORCE_MIN) * ratio;
-
-      const canJump = this.onGround || this._coyoteFrames > 0;
-      if (canJump) {
-        this.vy            = force;
-        this.onGround      = false;
-        this.jumpLocked    = true;
-        this._coyoteFrames = 0;
-      }
-      this.jumpHeld       = false;
-      this.jumpHoldFrames = 0;
-      return force;
+      this.jumpHeld  = false;
+      this.holdFrames = 0;
+      // Return the current vy so followers can mirror magnitude
+      return this.vy;
     }
 
-    // ---- Follower: schedule a mirrored jump with ripple delay ----
     scheduleFollowerJump(force, delayFrames) {
-      this._jumpQueue.push({ frames: delayFrames, force });
+      // force is the lead's vy at release — followers use a fixed launch velocity
+      // (the "force" param is kept for API compat but we use JUMP_VELOCITY)
+      this._jumpQueue.push({ frames: delayFrames });
     }
 
     update() {
@@ -104,75 +99,76 @@ const TravelHorse = (() => {
         return;
       }
 
-      // Charge accumulation while key held on ground (or coyote)
-      if (this.isLead && this.jumpHeld && (this.onGround || this._coyoteFrames > 0)) {
-        this.jumpHoldFrames = Math.min(TC.JUMP_HOLD_FRAMES, this.jumpHoldFrames + 1);
+      // -- Coyote & buffer countdowns --
+      if (!this.onGround && this._coyoteFrames > 0) this._coyoteFrames--;
+      if (this._jumpBuffer > 0) this._jumpBuffer--;
+
+      // -- Gravity selection --
+      let grav;
+      if (this.vy < 0 && this.jumpHeld && this.holdFrames < TC.MAX_HOLD_FRAMES) {
+        // Rising AND button held AND within hold window → soft gravity
+        grav = TC.HOLD_GRAVITY;
+        this.holdFrames++;
+      } else if (this.vy > 0) {
+        // Falling → punchy gravity
+        grav = TC.GRAVITY * TC.FALL_GRAVITY_MULT;
+      } else {
+        grav = TC.GRAVITY;
       }
 
-      // Coyote time countdown
-      if (!this.onGround && this._coyoteFrames > 0) {
-        this._coyoteFrames--;
-      }
-
-      // Jump buffer countdown
-      if (this._jumpBuffer > 0) {
-        this._jumpBuffer--;
-      }
-
-      // Gravity — fall faster than rise for snappy feel
-      const gravMult = (this.vy > 0) ? (TC.FALL_GRAVITY_MULT || 1.85) : 1.0;
-      this.vy += TC.GRAVITY * gravMult;
+      this.vy += grav;
       this.y  += this.vy;
 
+      // -- Ground collision --
       const groundY = TC.GROUND_Y - TC.HORSE_HEIGHT;
       if (this.y >= groundY) {
         const wasAirborne = !this.onGround;
-        this.y        = groundY;
-        this.vy       = 0;
-        this.onGround = true;
-        this.jumpLocked   = false;
-        this._coyoteFrames = TC.COYOTE_FRAMES || 7;
+        this.y         = groundY;
+        this.vy        = 0;
+        this.onGround  = true;
+        this.jumpLocked = false;
+        this.jumpHeld  = false;
+        this.holdFrames = 0;
+        this._coyoteFrames = TC.COYOTE_FRAMES;
 
-        // Fire buffered jump the moment we land
+        // Fire buffered jump on landing
         if (this.isLead && wasAirborne && this._jumpBuffer > 0) {
           this._jumpBuffer = 0;
-          this.jumpHeld       = true;
-          this.jumpHoldFrames = 0;
+          this._doLaunch();
         }
       } else {
-        // Just left the ground — start coyote timer
-        if (this.onGround) {
-          this._coyoteFrames = TC.COYOTE_FRAMES || 7;
-        }
+        if (this.onGround) this._coyoteFrames = TC.COYOTE_FRAMES;
         this.onGround = false;
       }
 
-      // Process follower ripple-wave jump queue
+      // -- Horizontal lunge return: lerp x back to baseX while on ground --
+      if (this.onGround && Math.abs(this.x - this.baseX) > 0.5) {
+        this.x += (this.baseX - this.x) * TC.LUNGE_RETURN;
+      } else if (this.onGround) {
+        this.x = this.baseX;
+      }
+
+      // -- Follower ripple queue --
       if (!this.isLead && this._jumpQueue.length) {
-        this._jumpQueue = this._jumpQueue.map(j => ({ ...j, frames: j.frames - 1 }));
+        this._jumpQueue = this._jumpQueue.map(j => ({ frames: j.frames - 1 }));
         const ready = this._jumpQueue.find(j => j.frames <= 0);
         if (ready && this.onGround) {
-          this.vy       = ready.force;
-          this.onGround = false;
           this._jumpQueue = this._jumpQueue.filter(j => j !== ready);
+          this._doLaunch();
         }
       }
 
       if (this.onGround) this.legPhase += 0.22;
     }
 
-    get chargeRatio() {
-      const TC = _TC();
-      return Math.min(1, this.jumpHoldFrames / TC.JUMP_HOLD_FRAMES);
-    }
-
     getBounds() {
       const TC = _TC();
+      const s  = TC.HORSE_SCALE || 0.72;
       return {
-        x: this.x + 12,
-        y: this.y + 8,
-        w: TC.HORSE_WIDTH  - 22,
-        h: TC.HORSE_HEIGHT - 14,
+        x: this.x + 12 * s,
+        y: this.y + 8  * s,
+        w: (TC.HORSE_WIDTH  - 22) * s,
+        h: (TC.HORSE_HEIGHT - 14) * s,
       };
     }
 
@@ -181,19 +177,22 @@ const TravelHorse = (() => {
       this.deathTimer = 0;
       this.vy         = -5;
       if (this.sourceRef) {
-        this.sourceRef.energy           = 0;
-        this.sourceRef.travelExhausted  = true;
-        console.log(`⚡ ${this.name} exhausted — needs food+sleep`);
+        this.sourceRef.energy          = 0;
+        this.sourceRef.travelExhausted = true;
+        console.log(`⚡ ${this.name} exhausted`);
       }
     }
 
     draw(ctx) {
       const TC    = _TC();
+      const scale = TC.HORSE_SCALE || 0.72;
       const alpha = this.dead ? Math.max(0, 1 - this.deathTimer / 40) : 1;
 
       ctx.save();
       ctx.globalAlpha = alpha;
-      ctx.translate(this.x, this.y);
+      // Position: use scaled height offset so hooves sit on ground line
+      ctx.translate(this.x, this.y + TC.HORSE_HEIGHT * (1 - scale));
+      ctx.scale(scale, scale);
 
       if (this.dead) {
         ctx.translate(TC.HORSE_WIDTH / 2, TC.HORSE_HEIGHT / 2);
@@ -246,14 +245,15 @@ const TravelHorse = (() => {
       ctx.bezierCurveTo(-8, 15, -10, 30, -4, 38);
       ctx.stroke();
 
-      // Legs
+      // Legs — stretch forward during lunge
+      const lungeOffset = (this.x - this.baseX) * 0.18;
       ctx.strokeStyle = c;
       ctx.lineWidth   = 5;
       ctx.lineCap     = 'round';
-      _drawLeg(ctx, 42, 38, Math.sin(lp) * 12);
-      _drawLeg(ctx, 35, 38, Math.sin(lp + Math.PI) * 12);
-      _drawLeg(ctx, 16, 38, Math.sin(lp + Math.PI) * 12);
-      _drawLeg(ctx,  9, 38, Math.sin(lp) * 12);
+      _drawLeg(ctx, 42, 38, Math.sin(lp) * 12 + lungeOffset);
+      _drawLeg(ctx, 35, 38, Math.sin(lp + Math.PI) * 12 + lungeOffset * 0.5);
+      _drawLeg(ctx, 16, 38, Math.sin(lp + Math.PI) * 12 - lungeOffset * 0.5);
+      _drawLeg(ctx,  9, 38, Math.sin(lp) * 12 - lungeOffset);
 
       // Lead crown
       if (this.isLead && !this.dead) {
@@ -264,25 +264,26 @@ const TravelHorse = (() => {
         ctx.fill();
       }
 
-      // Charge arc (lead, while holding jump)
-      if (this.isLead && this.jumpHeld && this.jumpHoldFrames > 3) {
-        const ratio = this.chargeRatio;
-        ctx.strokeStyle = `rgba(100,200,255,${0.5 + ratio * 0.5})`;
-        ctx.lineWidth   = 2 + ratio * 3;
+      // Hold indicator ring (replaces old charge arc — now shows how long hold lasts)
+      if (this.isLead && this.jumpHeld && !this.onGround) {
+        const holdRatio = Math.min(1, this.holdFrames / (TC.MAX_HOLD_FRAMES || 28));
+        const remaining = 1 - holdRatio;
+        ctx.strokeStyle = `rgba(100,220,255,${0.3 + remaining * 0.6})`;
+        ctx.lineWidth   = 2 + remaining * 2;
         ctx.beginPath();
-        ctx.arc(30, 25, 22 + ratio * 10, Math.PI, 0);
+        ctx.arc(30, 20, 26, -Math.PI / 2, -Math.PI / 2 + remaining * Math.PI * 2);
         ctx.stroke();
       }
 
       ctx.restore();
 
-      // Name tag
+      // Name tag (drawn outside the scaled context so font size stays consistent)
       if (!this.dead) {
         ctx.save();
         ctx.font      = '10px system-ui,sans-serif';
         ctx.textAlign = 'center';
         ctx.fillStyle = this.isLead ? '#ffe840' : 'rgba(255,255,255,0.7)';
-        ctx.fillText(this.name, this.x + 30, this.y - 6);
+        ctx.fillText(this.name, this.x + 30 * scale, this.y - 4);
         ctx.restore();
       }
     }

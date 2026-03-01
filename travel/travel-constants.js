@@ -4,14 +4,19 @@
 const TravelConstants = {
 
   // Physics
-  GRAVITY: 0.48,
-  FALL_GRAVITY_MULT: 1.85,   // Gravity multiplier when falling (vy > 0) — snappy landing
-  JUMP_FORCE_MIN: -9,
-  JUMP_FORCE_MAX: -17,
-  JUMP_HOLD_FRAMES: 22,
+  GRAVITY: 0.38,             // Applied every frame while button NOT held (or after release)
+  HOLD_GRAVITY: 0.10,        // Weak gravity while button held = floaty ascent
+  JUMP_VELOCITY: -11,        // Instant upward velocity on press (always fires immediately)
+  MAX_HOLD_FRAMES: 28,       // Max frames hold can counteract gravity
+  FALL_GRAVITY_MULT: 1.6,    // Extra gravity once vy > 0 (falling phase snappy)
   GROUND_Y: 300,
-  HORSE_WIDTH: 60,
+  HORSE_SCALE: 0.72,         // Draw horses at 72% size so more of the scene is visible
+  HORSE_WIDTH: 60,           // Logical hitbox (before scale)
   HORSE_HEIGHT: 50,
+
+  // Horizontal lunge on jump
+  LUNGE_FORWARD: 28,         // Pixels horse surges forward on jump
+  LUNGE_RETURN: 0.08,        // Lerp speed back to base X per frame after landing
 
   // "Coyote time" — frames after leaving ground the player can still jump
   COYOTE_FRAMES: 7,
@@ -20,8 +25,8 @@ const TravelConstants = {
 
   // Lead horse horizontal position (25% of 800px canvas = 200)
   LEAD_X: 200,
-  // Pixel gap between each trailing horse
-  HORSE_SPACING: 22,
+  // Pixel gap between each trailing horse — spread them out so the train is visible
+  HORSE_SPACING: 52,
 
   // Speed
   SPEED_INITIAL: 4.5,
@@ -32,8 +37,8 @@ const TravelConstants = {
   TERRAIN_SPEED: {
     plains:  1.0,
     forest:  1.0,
-    desert:  0.85,   // sand — sluggish
-    swamp:   0.6,    // water — heavy
+    desert:  0.85,
+    swamp:   0.6,
     downhill: 1.2,
   },
 
