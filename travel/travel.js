@@ -1,6 +1,4 @@
 // === TRAVEL MODE — Orchestrator ===
-// Wires together: TravelConstants, TravelBackground, TravelHorse,
-//                 TravelObstacles, TravelApples, TravelCheckpoints, TravelHUD
 
 const TravelGame = (() => {
 
@@ -8,11 +6,12 @@ const TravelGame = (() => {
   let horses        = [];
   let gameSpeed     = 0;
   let frameCount    = 0;
-  let score         = 0;        // metres travelled
+  let score         = 0;
   let animFrameId   = null;
   let gameOver      = false;
+  let paused        = false;
   let currentBiome  = 'plains';
-  let inputHeld     = false;    // true while space OR mouse button is held
+  let inputHeld     = false;
 
   // ---- Utility ----
   function rectsOverlap(a, b) {
@@ -34,7 +33,7 @@ const TravelGame = (() => {
     const pool     = eligible.length > 0 ? eligible : source;
 
     const TC      = window.TravelConstants;
-    const leadX   = TC.LEAD_X      || 200;
+    const leadX   = TC.LEAD_X       || 200;
     const spacing = TC.HORSE_SPACING || 52;
     horses = pool.map((h, i) =>
       new window.TravelHorse.Horse(h, leadX - i * spacing, i === 0)
@@ -48,6 +47,7 @@ const TravelGame = (() => {
     score      = 0;
     gameSpeed  = TC.SPEED_INITIAL;
     gameOver   = false;
+    paused     = false;
     inputHeld  = false;
 
     window.TravelBackground.init(currentBiome);
@@ -57,16 +57,41 @@ const TravelGame = (() => {
     buildHorses();
   }
 
+  // ---- Pause ----
+  function _pause() {
+    if (paused || gameOver) return;
+    paused    = true;
+    inputHeld = false;
+    const lead = _getLead();
+    if (lead) lead.releaseJump();
+  }
+
+  function _resume() {
+    if (!paused) return;
+    paused = false;
+  }
+
   // ---- Shared jump trigger ----
   function _triggerJump() {
-    if (inputHeld) return;   // already held, don't re-trigger
+    if (inputHeld || paused) return;
     inputHeld = true;
     const lead = _getLead();
     if (!lead) return;
     lead.startJump();
-    // Ripple: followers jump at 30-frame intervals (tight enough to all clear obstacles)
-    horses.forEach((h, i) => {
-      if (!h.isLead && !h.dead) h.scheduleFollowerJump(null, i * 30);
+
+    // Calculate per-follower delay: each horse is (i * spacing) pixels behind the lead.
+    // The rock that the lead just jumped over will reach follower i in:
+    //   delay_frames = (i * spacing) / gameSpeed
+    // This ensures each horse jumps at exactly the right moment regardless of speed.
+    const TC      = window.TravelConstants;
+    const spacing = TC.HORSE_SPACING || 52;
+    let followerIndex = 0;
+    horses.forEach((h) => {
+      if (h.isLead || h.dead) return;
+      followerIndex++;
+      const pixelsBack  = followerIndex * spacing;
+      const delayFrames = Math.round(pixelsBack / gameSpeed);
+      h.scheduleFollowerJump(null, delayFrames);
     });
   }
 
@@ -82,6 +107,7 @@ const TravelGame = (() => {
     if (e.code !== 'Space' && e.code !== 'ArrowUp') return;
     e.preventDefault();
     if (gameOver) { startGame(); return; }
+    if (paused)   { _resume(); return; }
     _triggerJump();
   }
 
@@ -91,24 +117,39 @@ const TravelGame = (() => {
     _releaseJump();
   }
 
-  // ---- Mouse input (LMB identical to Space) ----
-  function onMouseDown(e) {
+  // ---- Mouse input — canvas clicks resume/jump, clicks outside pause ----
+  function onCanvasMouseDown(e) {
     if (e.button !== 0) return;
     e.preventDefault();
     if (gameOver) { startGame(); return; }
+    if (paused)   { _resume(); return; }
     _triggerJump();
   }
 
-  function onMouseUp(e) {
+  function onCanvasMouseUp(e) {
     if (e.button !== 0) return;
     e.preventDefault();
     _releaseJump();
   }
 
-  // ---- Touch input ----
+  // Clicking outside the canvas (anywhere in the document) pauses
+  function onDocumentMouseDown(e) {
+    if (!canvas) return;
+    if (e.target === canvas) return;      // canvas handles its own clicks
+    if (gameOver || paused) return;
+    _pause();
+  }
+
+  // Window blur (alt-tab, etc.) also pauses
+  function onWindowBlur() {
+    _pause();
+  }
+
+  // ---- Touch ----
   function onTouchStart(e) {
     e.preventDefault();
     if (gameOver) { startGame(); return; }
+    if (paused)   { _resume(); return; }
     _triggerJump();
   }
 
@@ -126,6 +167,39 @@ const TravelGame = (() => {
     if (next) { next.isLead = true; console.log(`👑 ${next.name} now leads`); }
   }
 
+  // ---- Pause overlay ----
+  function _drawPauseOverlay() {
+    const w = canvas.width, h = canvas.height;
+    // Dim the scene
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(0, 0, w, h);
+
+    // Panel
+    const pw = 320, ph = 110;
+    const px = (w - pw) / 2, py = (h - ph) / 2;
+    ctx.fillStyle = 'rgba(10,10,20,0.92)';
+    ctx.beginPath();
+    ctx.roundRect(px, py, pw, ph, 14);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,220,255,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // PAUSED text
+    ctx.fillStyle   = '#00eeff';
+    ctx.font        = 'bold 36px monospace';
+    ctx.textAlign   = 'center';
+    ctx.shadowColor = '#00eeff';
+    ctx.shadowBlur  = 18;
+    ctx.fillText('PAUSED', w / 2, py + 54);
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font      = '14px monospace';
+    ctx.fillText('Click or press SPACE to resume', w / 2, py + 85);
+    ctx.textAlign = 'left';
+  }
+
   // ---- Game loop ----
   function gameLoop() {
     animFrameId = requestAnimationFrame(gameLoop);
@@ -133,6 +207,28 @@ const TravelGame = (() => {
     if (!window.TravelConstants || !window.TravelBackground) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Always draw the current scene underneath
+    window.TravelBackground.draw(ctx, canvas, frameCount, gameSpeed);
+    window.TravelObstacles.draw(ctx);
+    window.TravelApples.draw(ctx);
+    horses.forEach(h => h.draw(ctx));
+    window.TravelHUD.draw(ctx, canvas, {
+      score,
+      gameSpeed,
+      horses,
+      pendingApples: window.TravelApples.getPending(),
+      biomeLabel: window.HorseManager?.getActiveHerd()?.meta?.herd_name || '',
+    });
+    window.TravelCheckpoints.drawProgressBar(ctx, canvas, score);
+    window.TravelCheckpoints.draw(ctx, canvas);
+
+    // If paused: overlay and stop updating
+    if (paused) {
+      _drawPauseOverlay();
+      return;
+    }
+
     frameCount++;
 
     const TC      = window.TravelConstants;
@@ -142,7 +238,6 @@ const TravelGame = (() => {
       const terrainMult = (TC.TERRAIN_SPEED && TC.TERRAIN_SPEED[currentBiome]) || 1.0;
       gameSpeed = Math.min(TC.SPEED_MAX, (TC.SPEED_INITIAL + frameCount * TC.SPEED_INCREMENT) * terrainMult);
 
-      // Score in metres: scale factor converts px/frame → metres/frame
       const scoreScale = TC.SCORE_SCALE || 0.01543;
       score += gameSpeed * scoreScale;
 
@@ -151,7 +246,7 @@ const TravelGame = (() => {
       window.TravelApples.update(canvas.width, gameSpeed);
       horses.forEach(h => h.update());
 
-      // Collision: only lead horse vs rocks
+      // Collision: lead horse vs rocks
       const lead = _getLead();
       if (lead) {
         const lb = lead.getBounds();
@@ -164,37 +259,17 @@ const TravelGame = (() => {
         }
       }
 
-      // Apple collection
       const newLead = _getLead();
       if (newLead) window.TravelApples.checkCollision(newLead);
 
-      // Checkpoint check (score is in metres; checkpoints every CHECKPOINT_KM * 1000)
       if (window.TravelCheckpoints.check(score, window.TravelApples.getPending())) {
         window.TravelApples.clearPending();
       }
     }
 
     if (allDead && !gameOver) {
-      // Cash remaining apples on run end (no checkpoint save — apples lost on death)
       gameOver = true;
     }
-
-    // Draw
-    window.TravelBackground.draw(ctx, canvas, frameCount, gameSpeed);
-    window.TravelObstacles.draw(ctx);
-    window.TravelApples.draw(ctx);
-    horses.forEach(h => h.draw(ctx));
-
-    window.TravelHUD.draw(ctx, canvas, {
-      score,
-      gameSpeed,
-      horses,
-      pendingApples: window.TravelApples.getPending(),
-      biomeLabel: window.HorseManager?.getActiveHerd()?.meta?.herd_name || '',
-    });
-
-    window.TravelCheckpoints.drawProgressBar(ctx, canvas, score);
-    window.TravelCheckpoints.draw(ctx, canvas);
 
     if (gameOver && horses.every(h => h.deathTimer > 35)) {
       window.TravelHUD.drawGameOver(ctx, canvas, score, window.TravelCheckpoints.getTotalCashed());
@@ -228,13 +303,15 @@ const TravelGame = (() => {
     tip.textContent   = 'Hold SPACE or click — 👑 lead horse must clear rocks!';
     container.appendChild(tip);
 
-    document.addEventListener('keydown', onKeyDown);
-    document.addEventListener('keyup',   onKeyUp);
-    canvas.addEventListener('mousedown',  onMouseDown);
-    canvas.addEventListener('mouseup',    onMouseUp);
-    canvas.addEventListener('mouseleave', onMouseUp);          // release if cursor leaves
-    canvas.addEventListener('touchstart', onTouchStart, { passive: false });
-    canvas.addEventListener('touchend',   onTouchEnd,   { passive: false });
+    document.addEventListener('keydown',   onKeyDown);
+    document.addEventListener('keyup',     onKeyUp);
+    document.addEventListener('mousedown', onDocumentMouseDown);  // outside-click pause
+    window.addEventListener('blur',        onWindowBlur);          // alt-tab pause
+    canvas.addEventListener('mousedown',   onCanvasMouseDown);
+    canvas.addEventListener('mouseup',     onCanvasMouseUp);
+    canvas.addEventListener('mouseleave',  onCanvasMouseUp);
+    canvas.addEventListener('touchstart',  onTouchStart, { passive: false });
+    canvas.addEventListener('touchend',    onTouchEnd,   { passive: false });
 
     if (animFrameId) cancelAnimationFrame(animFrameId);
     startGame();
@@ -243,8 +320,10 @@ const TravelGame = (() => {
 
   function unmount() {
     if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
-    document.removeEventListener('keydown', onKeyDown);
-    document.removeEventListener('keyup',   onKeyUp);
+    document.removeEventListener('keydown',   onKeyDown);
+    document.removeEventListener('keyup',     onKeyUp);
+    document.removeEventListener('mousedown', onDocumentMouseDown);
+    window.removeEventListener('blur',        onWindowBlur);
     if (container) container.innerHTML = '';
   }
 
