@@ -6,12 +6,36 @@ const TravelGame = (() => {
   let horses        = [];
   let gameSpeed     = 0;
   let frameCount    = 0;
-  let score         = 0;
+  let score         = 0;        // metres
+  let tiles         = 0;        // current tile = Math.floor(score / METRES_PER_TILE)
+  let nextTerrainAt = 0;        // tile count at which to swap terrain
   let animFrameId   = null;
   let gameOver      = false;
   let paused        = false;
   let currentBiome  = 'plains';
   let inputHeld     = false;
+
+  // Terrain rotation: brown=plains, green=forest, grey=desert
+  const TERRAIN_CYCLE = ['plains', 'forest', 'desert'];
+
+  function _pickNextTerrain() {
+    const TC     = window.TravelConstants;
+    const min    = TC?.TERRAIN_SWAP_MIN_TILES || 50;
+    const max    = TC?.TERRAIN_SWAP_MAX_TILES || 200;
+    const span   = Math.floor(min + Math.random() * (max - min));
+    nextTerrainAt = tiles + span;
+    console.log(`🌍 next terrain swap at tile ${nextTerrainAt}`);
+  }
+
+  function _switchTerrain() {
+    // Pick a different biome from the current one
+    const others  = TERRAIN_CYCLE.filter(b => b !== currentBiome);
+    currentBiome  = others[Math.floor(Math.random() * others.length)];
+    window.TravelBackground.init(currentBiome);
+    window.TravelObstacles.reset(currentBiome);
+    console.log(`🌍 terrain → ${currentBiome}`);
+    _pickNextTerrain();
+  }
 
   // ---- Utility ----
   function rectsOverlap(a, b) {
@@ -43,18 +67,20 @@ const TravelGame = (() => {
   // ---- Start / restart ----
   function startGame() {
     const TC = window.TravelConstants;
-    frameCount = 0;
-    score      = 0;
-    gameSpeed  = TC.SPEED_INITIAL;
-    gameOver   = false;
-    paused     = false;
-    inputHeld  = false;
+    frameCount    = 0;
+    score         = 0;
+    tiles         = 0;
+    gameSpeed     = TC.SPEED_INITIAL;
+    gameOver      = false;
+    paused        = false;
+    inputHeld     = false;
 
     window.TravelBackground.init(currentBiome);
     window.TravelObstacles.reset(currentBiome);
     window.TravelApples.reset();
     window.TravelCheckpoints.reset();
     buildHorses();
+    _pickNextTerrain();
   }
 
   // ---- Pause ----
@@ -215,6 +241,7 @@ const TravelGame = (() => {
     horses.forEach(h => h.draw(ctx));
     window.TravelHUD.draw(ctx, canvas, {
       score,
+      tiles,
       gameSpeed,
       horses,
       pendingApples: window.TravelApples.getPending(),
@@ -238,8 +265,14 @@ const TravelGame = (() => {
       const terrainMult = (TC.TERRAIN_SPEED && TC.TERRAIN_SPEED[currentBiome]) || 1.0;
       gameSpeed = Math.min(TC.SPEED_MAX, (TC.SPEED_INITIAL + frameCount * TC.SPEED_INCREMENT) * terrainMult);
 
-      const scoreScale = TC.SCORE_SCALE || 0.01543;
+      const scoreScale  = TC.SCORE_SCALE      || 0.01543;
+      const mPerTile    = TC.METRES_PER_TILE  || 10;
       score += gameSpeed * scoreScale;
+      const newTiles = Math.floor(score / mPerTile);
+      if (newTiles > tiles) {
+        tiles = newTiles;
+        if (tiles >= nextTerrainAt) _switchTerrain();
+      }
 
       window.TravelBackground.update(gameSpeed);
       window.TravelObstacles.update(canvas.width, gameSpeed);

@@ -28,18 +28,23 @@ const TravelConstants = {
   // Pixel gap between each trailing horse
   HORSE_SPACING: 52,
 
-  // Speed — 15 km/h base. Score units are metres: 60fps * SPEED_INITIAL / PIXELS_PER_METRE
-  // At 60fps, to cover 1000m (1km) in real-time we need score units to match.
-  // We'll treat 1 score unit = 1 metre. SPEED drives pixels/frame; score += gameSpeed * scale.
-  // PIXELS_PER_METRE: score scale factor so 1000 score = 1 km
-  SPEED_INITIAL: 4.5,        // pixels/frame at 60fps ≈ 270px/s → calibrated via SCORE_SCALE
+  // Speed
+  SPEED_INITIAL: 4.5,        // pixels/frame at 60fps ≈ 270px/s
   SPEED_INCREMENT: 0.0004,
   SPEED_MAX: 12,
-  // Score is accumulated as: score += gameSpeed * SCORE_SCALE each frame
-  // At 60fps and speed=4.5: 4.5 * SCORE_SCALE * 60 = metres per second
-  // 15 km/h = 4.167 m/s → SCORE_SCALE = 4.167 / (4.5 * 60) ≈ 0.01543
-  SCORE_SCALE: 0.01543,      // converts px/frame → metres/frame at reference speed
-  CHECKPOINT_KM: 1,          // checkpoint every N kilometres
+
+  // ---- Tile system ----
+  // 1 tile = 10 metres = 100px of travel
+  // score is accumulated in METRES; tiles = Math.floor(score / 10)
+  // At 60fps and speed=4.5: 4.5px/f * 0.01543 * 60f/s = 4.167 m/s = 15 km/h
+  // Horse covers 1 tile (10m) in ~2.4 seconds at start speed
+  SCORE_SCALE: 0.01543,      // converts px/frame → metres/frame
+  METRES_PER_TILE: 10,       // 1 tile = 10 metres = 100px
+  CHECKPOINT_TILES: 100,     // checkpoint every 100 tiles = 1 km
+
+  // Terrain swaps: random interval between MIN and MAX tiles
+  TERRAIN_SWAP_MIN_TILES: 50,
+  TERRAIN_SWAP_MAX_TILES: 200,
 
   // Terrain speed multipliers
   TERRAIN_SPEED: {
@@ -51,7 +56,6 @@ const TravelConstants = {
   },
 
   // Collectibles / checkpoints
-  // CHECKPOINT_DISTANCE is now computed dynamically: CHECKPOINT_KM * 1000
   APPLE_SPAWN_CHANCE: 0.003,
 
   // Biomes

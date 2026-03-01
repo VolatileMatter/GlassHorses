@@ -10,14 +10,17 @@ const TravelCheckpoints = (() => {
   let totalCashedApples = 0;
   const FANFARE_FRAMES  = 110;
 
-  function _cpDist() {
+  // Returns the checkpoint interval in metres, derived from tile constants
+  function _cpDistMetres() {
     const TC = window.TravelConstants;
-    return (TC && TC.CHECKPOINT_KM ? TC.CHECKPOINT_KM : 1) * 1000;  // metres
+    const tiles   = TC?.CHECKPOINT_TILES   || 100;
+    const mPerT   = TC?.METRES_PER_TILE    || 10;
+    return tiles * mPerT;   // 100 tiles * 10 m = 1000 m = 1 km
   }
 
   function reset() {
     checkpointNumber  = 0;
-    nextCheckpointAt  = _cpDist();
+    nextCheckpointAt  = _cpDistMetres();
     fanfareTimer      = 0;
     lastCashedApples  = 0;
     totalCashedApples = 0;
@@ -39,7 +42,7 @@ const TravelCheckpoints = (() => {
 
   function _trigger(pendingApples) {
     checkpointNumber++;
-    nextCheckpointAt += _cpDist();   // every km, evenly spaced
+    nextCheckpointAt += _cpDistMetres();   // every 100 tiles, evenly spaced
     fanfareTimer      = FANFARE_FRAMES;
     lastCashedApples  = pendingApples;
     totalCashedApples += pendingApples;
@@ -88,10 +91,14 @@ const TravelCheckpoints = (() => {
   }
 
   function drawProgressBar(ctx, canvas, score) {
-    const dist    = _cpDist();
-    const prevCP  = nextCheckpointAt - dist;
-    const range   = dist;
-    const progress = Math.min(1, Math.max(0, (score - prevCP) / range));
+    const dist     = _cpDistMetres();
+    const prevCP   = nextCheckpointAt - dist;
+    const progress = Math.min(1, Math.max(0, (score - prevCP) / dist));
+
+    const TC       = window.TravelConstants;
+    const mPerT    = TC?.METRES_PER_TILE || 10;
+    const tilesDone = Math.floor(score / mPerT);
+    const tilesNext = Math.floor(nextCheckpointAt / mPerT);
 
     const bx = canvas.width - 198, by = 6, bw = 188, bh = 10;
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
@@ -103,13 +110,10 @@ const TravelCheckpoints = (() => {
     ctx.fillStyle = grad;
     ctx.fillRect(bx, by, bw * progress, bh);
 
-    // Show distance in km
-    const kmDone = (score / 1000).toFixed(2);
-    const kmNext = (nextCheckpointAt / 1000).toFixed(0);
     ctx.fillStyle = '#fff';
     ctx.font      = '11px monospace';
     ctx.textAlign = 'right';
-    ctx.fillText(`🏁 ${kmDone}/${kmNext}km`, canvas.width - 8, by + 9);
+    ctx.fillText(`🏁 ${tilesDone}/${tilesNext}t`, canvas.width - 8, by + 9);
     ctx.textAlign = 'left';
   }
 

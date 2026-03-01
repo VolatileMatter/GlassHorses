@@ -3,7 +3,7 @@
 const TravelHUD = (() => {
 
   function draw(ctx, canvas, state) {
-    const { score, gameSpeed, horses, pendingApples, biomeLabel } = state;
+    const { score, tiles, gameSpeed, horses, pendingApples, biomeLabel } = state;
 
     // Top bar
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
@@ -12,7 +12,7 @@ const TravelHUD = (() => {
     ctx.fillStyle  = '#fff';
     ctx.font       = 'bold 14px monospace';
     ctx.textAlign  = 'left';
-    ctx.fillText(`Dist: ${(score/1000).toFixed(2)}km`, 10, 19);
+    ctx.fillText(`Tile: ${tiles ?? Math.floor(score/10)}`, 10, 19);
     ctx.fillText(`Speed: ${gameSpeed.toFixed(1)}`, 118, 19);
 
     const alive = horses.filter(h => !h.dead).length;
