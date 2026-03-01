@@ -250,11 +250,17 @@ const TravelGame = (() => {
       const lead = _getLead();
       if (lead) {
         const lb = lead.getBounds();
-        for (const rb of window.TravelObstacles.getBounds()) {
-          if (rectsOverlap(lb, rb)) {
-            lead.kill();
-            _promoteLead();
-            break;
+        if (lb) {
+          for (const rb of window.TravelObstacles.getBounds()) {
+            if (rectsOverlap(lb, rb)) {
+              lead.kill();
+              _promoteLead();
+              // Grace: give all surviving followers 10 frames of immunity
+              horses.forEach(h => {
+                if (!h.dead) h.immunityFrames = 10;
+              });
+              break;
+            }
           }
         }
       }

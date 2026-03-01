@@ -34,9 +34,10 @@ const TravelHorse = (() => {
       this.onGround  = true;
       this.isLead    = isLead;
 
-      this.dead       = false;
-      this.deathTimer = 0;
-      this.legPhase   = Math.random() * Math.PI * 2;
+      this.dead          = false;
+      this.deathTimer    = 0;
+      this.immunityFrames = 0;   // >0 = ghost through obstacles
+      this.legPhase      = Math.random() * Math.PI * 2;
 
       // Jump state
       this.jumpHeld    = false;
@@ -92,6 +93,8 @@ const TravelHorse = (() => {
         this.y  += this.vy;
         return;
       }
+
+      if (this.immunityFrames > 0) this.immunityFrames--;
 
       // Countdowns
       if (!this.onGround && this._coyoteFrames > 0) this._coyoteFrames--;
@@ -159,6 +162,7 @@ const TravelHorse = (() => {
     }
 
     getBounds() {
+      if (this.immunityFrames > 0) return null;   // ghost — skip collision
       const TC = _TC();
       const s  = TC.HORSE_SCALE || 0.72;
       return {
@@ -185,8 +189,12 @@ const TravelHorse = (() => {
       const scale = TC.HORSE_SCALE || 0.72;
       const alpha = this.dead ? Math.max(0, 1 - this.deathTimer / 40) : 1;
 
+      // Ghost flicker while immune: alternate between normal and translucent cyan tint
+      const isImmune = this.immunityFrames > 0;
+      const flickerOn = isImmune && (Math.floor(this.immunityFrames / 2) % 2 === 0);
+
       ctx.save();
-      ctx.globalAlpha = alpha;
+      ctx.globalAlpha = flickerOn ? 0.45 : alpha;
       ctx.translate(this.x, this.y + TC.HORSE_HEIGHT * (1 - scale));
       ctx.scale(scale, scale);
 
