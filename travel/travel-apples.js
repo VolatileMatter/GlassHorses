@@ -40,10 +40,10 @@ const TravelApples = (() => {
     }
   }
 
-  function checkCollision(leadHorse) {
-    if (!leadHorse || leadHorse.dead) return 0;
+  function checkCollision(horse) {
+    if (!horse || horse.dead) return 0;
     let collected = 0;
-    const hx = leadHorse.x + 12, hy = leadHorse.y + 8, hw = 38, hh = 35;
+    const hx = horse.x + 12, hy = horse.y + 8, hw = 38, hh = 35;
 
     apples.forEach(a => {
       if (a.collected) return;

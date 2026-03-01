@@ -298,7 +298,8 @@ const TravelGame = (() => {
       }
 
       const newLead = _getLead();
-      if (newLead) window.TravelApples.checkCollision(newLead);
+      // Apple collection — any living horse can collect
+      horses.forEach(h => { if (!h.dead) window.TravelApples.checkCollision(h); });
 
       if (window.TravelCheckpoints.check(score, window.TravelApples.getPending())) {
         window.TravelApples.clearPending();
