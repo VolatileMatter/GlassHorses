@@ -6,7 +6,7 @@ const TravelConstants = {
   // Physics
   GRAVITY: 0.55,             // Normal gravity — horse reaches apex quickly
   HOLD_FALL_GRAVITY: 0.18,   // Reduced gravity when falling AND button still held = soft landing
-  JUMP_VELOCITY: -17,       // doubled jump height       // Upward snap on press
+  JUMP_VELOCITY: -13,       // doubled jump height       // Upward snap on press
   MAX_HOLD_FRAMES: 28,       // Max frames hold can slow the fall (only active while falling)
   FALL_GRAVITY_MULT: 1.7,    // Extra gravity when falling WITHOUT hold = snappy drop
   GROUND_Y: 300,
