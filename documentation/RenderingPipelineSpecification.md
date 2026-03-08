@@ -1,133 +1,156 @@
-**Rendering Pipeline Spec**
+# Rendering Pipeline Specification
 
-Version 1.0  |  Status: In Design
+Version 2.0 | Status: Authoritative
 
-*A browser-based single-player horse breeding simulator combined with a Sonic-style side-scrolling runner. The player is an ancient god observing their herd through a crystal ball, controlling destiny through breeding choices.*
+---
 
-# **1\. Game Overview**
+## 1. Game Overview & Framing
 
-A browser-based single-player horse breeding simulator combined with a Sonic-style side-scrolling runner game. The core fantasy is that the player is an ancient god — a mystical force — controlling the destiny of their herd through breeding choices. They observe their herd through a crystal ball.
+GlassHorses is a horse breeding simulator combined with a side-scrolling runner. The player is an ancient god observing their herd through a crystal ball — a glass sphere through which destiny is watched and shaped. All visual and UI decisions serve this framing.
 
-## **Visual Modes**
+**See also**: SettingSpecification.md (world and god framing), GeneImplementation.md (genetics pipeline), TravelSpecification.md (running mode context), DualVersionSpecification.md (platform architecture).
 
-| Mode | Visual Style | Performance Priority |
-| :---- | :---- | :---- |
-| Grazing Mode | Nearly photo-realistic, full real-time 3D. Primary 'menu' experience. | Quality over FPS. Stuttering acceptable. Min 20 FPS. |
-| Running Mode | Deliberately cartoony. Pre-baked sprites only. No 3D at runtime. | Maximum FPS. No 3D rendering whatsoever. |
-| Detail View | Full real-time 3D, free camera, maximum quality. | 60 FPS target. One horse only. |
-| Book View | 2D atlas thumbnails. Instant display. | Negligible cost. |
+---
 
-# **2\. Technology Stack**
+## 2. Platform Architecture
 
-| Component | Technology |
-| :---- | :---- |
-| Runtime | Browser-based. Desktop only. No mobile optimisation. |
-| 3D Rendering | Three.js with WebGL, inside Web Workers via OffscreenCanvas |
-| Browsers | Chrome 69+, Firefox 105+, Safari 16.4+ |
-| Asset Storage | IndexedDB for persistence. All computation client-side. Server serves static files only. |
-| 3D Assets | GLTF/GLB for all models, animations, morph targets |
-| Coat Compositor | OffscreenCanvas 2D running in Web Workers |
+### Target Runtime: Electron (Desktop-First)
 
-**⚠️  Open Ambiguities & Decisions Required**
+The game targets **Electron** as its primary runtime. Electron wraps a Chromium instance alongside a Node.js process, giving the renderer full access to both browser APIs and the local filesystem. This has direct consequences for every rendering and storage decision in this document.
 
-* No decision on audio system or whether audio sync hooks are needed in the animation event system. Must be decided before the animation system is built — retrofitting is painful.
+| Component | Technology | Notes |
+|-----------|-----------|-------|
+| Runtime | Electron (Chromium + Node.js) | Desktop only. No mobile optimisation. |
+| 3D Rendering | Three.js with WebGL | Via OffscreenCanvas in Web Workers |
+| Asset Storage | Local filesystem via Node.js `fs` | See Section 17. IndexedDB is **not** used. |
+| 3D Assets | GLTF/GLB | Authored in Blender, Y-up export |
+| Coat Compositor | OffscreenCanvas 2D in Web Workers | Shared worker pool |
+| Game Data | SQLite via `better-sqlite3` | Mirrors web PostgreSQL schema |
 
-* No central event bus architecture defined. Before building any cross-system communication (job system → animation, genetics → renderer, camera → LOD), a named event bus must be designed. All systems publish and subscribe to events rather than calling each other directly.
+### Why Electron Changes Storage
 
-# **3\. Coordinate System & Units**
+The original spec used IndexedDB for all persistent asset storage (baked PNGs, spritesheets, atlas thumbnails). In Electron, the Node.js process has direct filesystem access. All baked image assets are written to disk as standard files in the user's AppData directory. SQLite stores all structured game data (horse JSON, genome records, asset path references). This approach:
 
-1 unit \= 1 metre. Consistent with running mode physics and extended to all systems.
+- Mirrors the web PostgreSQL schema closely, reducing migration cost
+- Makes baked assets inspectable and debuggable without browser tooling
+- Avoids IndexedDB size limits and corruption risks on long-running saves
+- Simplifies the modding pipeline — mod assets are folders on disk, not blobs in a browser store
 
-Y-up. Three.js is Y-up. GLTF exports from Blender use Y-up at export. Modders working in Blender do not need to think about this — the export converts automatically. All landmark normals, appendage offsets, and world-space math assume Y is up.
+### Web Version Compatibility
 
-Horse scale: A real horse stands approximately 1.5–1.7 metres at the shoulder. The base mesh is authored at this scale in Blender.
+The rendering pipeline is written to be platform-agnostic at the Three.js/WebGL layer. The storage abstraction layer (Section 17) is the only component that differs meaningfully between Electron and web. All coat generation, sprite baking, and real-time rendering code runs identically on both platforms. The storage layer calls a unified interface; the implementation beneath it swaps between `fs` (Electron) and PostgreSQL blob storage or CDN URLs (web).
 
-## **Crystal Ball Scene Sizes**
+### Browsers Supported (Web Version)
+
+Chrome 88+, Firefox 90+, Safari 16.4+. OffscreenCanvas required. Electron's bundled Chromium always satisfies this.
+
+---
+
+## 3. Visual Modes
+
+| Mode | Visual Style | Performance Target |
+|------|-------------|-------------------|
+| **Grazing Mode** | Nearly photo-realistic real-time 3D. Primary experience. | Min 20 FPS. Stuttering acceptable. Quality over framerate. |
+| **Running Mode** | Deliberately cartoony. Pre-baked sprites only. Zero 3D at runtime. | Maximum FPS. No 3D rendering whatsoever. |
+| **Detail View** | Full real-time 3D, free camera, maximum quality. One horse. | 60 FPS target. |
+| **Book View** | 2D atlas thumbnails. Instant display. | Negligible cost. |
+
+Running Mode sprites are baked at birth using the cartoon shader applied to the 3D scene. **Running mode sprites are never updated after birth.** A horse that gains scars, clothing, or equipment post-birth appears unscarred in the running minigame. This is intentional — the running sprite represents the horse's essential self, not their current state. Players should be informed of this when scars or equipment are first applied.
+
+---
+
+## 4. Coordinate System & Units
+
+- **1 unit = 1 metre.** Consistent across all systems including running mode physics.
+- **Y-up.** Three.js is Y-up. GLTF exports from Blender use Y-up. Modders working in Blender do not need to manage this — the export converts automatically. All landmark normals, appendage offsets, and world-space math assume Y is up.
+- **Horse scale**: Base mesh authored at 1.5–1.7m at the shoulder.
+
+### Crystal Ball Scene Sizes
 
 | Adult Horses in Herd | Ball Diameter |
-| :---- | :---- |
+|---------------------|---------------|
 | 1–20 | 0.5 km (500 units) |
 | 20–100 | 1 km (1,000 units) |
 | 100–200 | 2 km (2,000 units) |
 | 200+ | 5 km (5,000 units) |
 
-Ball size is fixed when grazing mode is first entered for a session. It does not change in real-time. It is keyed to the number of adult horses only. When the player re-enters grazing mode with a different adult count crossing a threshold, the scene reloads entirely.
+Ball size is fixed when Grazing Mode is first entered for a session. It does not change in real-time. It is keyed to adult horse count only. When the player re-enters Grazing Mode after the adult count crosses a threshold, the scene reloads entirely. This reload must be communicated to the player via a loading transition — no silent freeze.
 
-**⚠️  Open Ambiguities & Decisions Required**
+**⚠️ Open Decision**: Ground plane definition per environment is not formalised. Must be a formal property of each environment's scene definition file — either a flat plane at a defined Y height, or a minimum polar camera angle. Without this contract, modders cannot correctly constrain camera movement for custom environments. **Blocking for modding guide.**
 
-* The ground plane definition per environment is not formally specified. Needs to be a formal property of the scene definition file — either a flat plane at a defined Y height, or a minimum polar camera angle. Without this contract, modders cannot correctly specify ground constraints for custom environments.
+---
 
-* On ball size change (re-entry after herd count crosses threshold), the scene reloads and camera reinitialises completely. No continuity is attempted. This should be communicated to the player via a loading transition.
+## 5. Genetics & Rendering Architecture
 
-# **4\. Genetics System**
+Genetics and rendering are deliberately decoupled.
 
-## **Architecture**
-
+```
 Genome → TraitResolver → HorseTraits → Renderer
+```
 
-Genes do not directly draw anything. They produce trait values that the renderer reads. This abstraction is what makes the system moddable — new genes produce new traits, new renderer layers consume them.
+Genes do not draw anything. They produce trait values that the renderer reads. This abstraction is what makes the system moddable — new genes produce new traits, new renderer layers consume them.
 
-## **The Epigenetics Rule**
+### The Epigenetics Rule
 
-THERE ARE ZERO CALLS TO Math.random() INSIDE ANY COAT GENERATOR FUNCTION. All randomness is resolved when a foal is born and its epigenetic values are set. The renderer is a pure function of genome \+ epigenetic values. Same input always produces identical output. Epigenetic values are the direct parameters to the renderer — a tobiano gene's patch\_count, patch\_spread, edge\_roughness, and white\_dominance were resolved at birth and the renderer uses them directly.
+**ZERO calls to `Math.random()` inside any coat generator function.** All randomness is resolved at birth when epigenetic values are set. The renderer is a pure function of genome + epigenetic values. Identical input always produces identical output.
 
-Math.random() IS permitted only during the breeding/birth process when epigenetic values are first set.
+`Math.random()` is permitted only during the breeding/birth process when epigenetic values are first established.
 
-## **Core Genes (Priority Order)**
+Epigenetic values are direct renderer parameters. A tobiano gene's `patch_count`, `patch_spread`, `edge_roughness`, and `white_dominance` are resolved at birth and fed directly to the compositor.
+
+### Core Genes (Priority Order)
 
 | Gene | Priority | Effect |
-| :---- | :---- | :---- |
-| base\_extension | 0 | Whether black pigment can express (E/e) |
-| base\_agouti | 0 | Whether black restricts to points (A/a) |
-| base\_champagne | 50 | Champagne dilution |
-| base\_cream | 50 | Cream dilution — 1 copy palomino/buckskin, 2 copies cremello/perlino |
-| base\_grey | 100 | Progressive greying with age (dominant) |
-| base\_splash | 255 | Splash white marking pattern |
+|------|----------|--------|
+| base_extension | 0 | Whether black pigment can express (E/e) |
+| base_agouti | 0 | Whether black restricts to points (A/a) |
+| base_champagne | 50 | Champagne dilution |
+| base_cream | 50 | Cream dilution — 1 copy palomino/buckskin; 2 copies cremello/perlino |
+| base_grey | 100 | Progressive greying with age (dominant) |
+| base_splash | 255 | Splash white marking pattern |
 
-## **Gene Definition Format**
+### Gene Definition Format
 
-module.exports \= {
-
+```javascript
+module.exports = {
   name: 'extension',
-
   prefix: 'base',
-
   priority: 0,
-
-  alleles: \['base\_extension\_E', 'base\_extension\_e'\],
-
+  alleles: ['base_extension_E', 'base_extension_e'],
   epigenetics: {
-
-    pigmentRestriction: { noisePercent: 5, defaultRange: \[70, 95\] }
-
+    pigmentRestriction: { noisePercent: 5, defaultRange: [70, 95] }
   },
-
-  alterCoat:   (ctx) \=\> { /\* paints coat colour layer at 1024px \*/ },
-
-  alterNormal: (ctx) \=\> { /\* optional: paints normal map layer \*/ }
-
+  alterCoat:   (ctx) => { /* paints coat colour layer at 1024px */ },
+  alterNormal: (ctx) => { /* optional: paints normal map layer */ }
 };
+```
 
-**⚠️  Open Ambiguities & Decisions Required**
+**⚠️ Open Decision**: Save schema migration strategy is not defined. When new gene loci are added, existing horses need a migration path. A formal save schema version number (separate from landmark versions) must be designed before the first public release. In Electron/SQLite, this is a database migration; in the web version, a PostgreSQL migration. Both must be coordinated.
 
-* Save data schema and migration strategy not fully defined. When the game adds new gene loci, existing horses need a migration path. A formal save schema version number (separate from landmark versions) must be designed.
+**⚠️ Open Decision**: Missing-mod handling is not defined. When a saved horse references a mod gene no longer installed, a fallback visual must be defined. This must be resolved before the horse data format is finalised.
 
-* Mod identity and missing-mod handling not defined. When a saved horse references a mod gene no longer installed, a fallback behaviour must be defined before the horse data format is finalised.
+---
 
-# **5\. Horse Rendering Pipeline**
+## 6. Horse Rendering: The Three Pipelines
 
-## **The Three Output Pipelines**
+All baked output is stored on the local filesystem (Electron) or equivalent persistent storage (web). Paths are recorded in the horse's SQLite record.
 
-| Pipeline | Output | When |
-| :---- | :---- | :---- |
-| A — Atlas Thumbnail Bake | 128px single frame, packed into atlas. Left \+ right facing. | At birth. Permanent. Never updated. |
-| B — Running Sprite Bake | 256px spritesheet, cartoon shader. Left \+ right facing. | At birth. Permanent. Never reflects post-birth changes. |
-| C — Grazing / Detail Real-Time | Full 3D PBR render. 512px coat (grazing) or 1024px (detail). | Live every frame. Never stored. |
+| Pipeline | Output | When | Storage |
+|----------|--------|------|---------|
+| **A — Atlas Thumbnail Bake** | 128px single frame, atlas-packed. Left + right facing. | At birth. Permanent. | Filesystem: `AppData/GlassHorses/atlas/` |
+| **B — Running Sprite Bake** | 256px spritesheet, cartoon shader. Left + right facing. | At birth. Permanent. Never updated. | Filesystem: `AppData/GlassHorses/sprites/` |
+| **C — Grazing / Detail Real-Time** | Full 3D PBR render. 512px coat (grazing) or 1024px (detail). | Live every frame. | RAM only. Never stored. |
 
-## **Coat Layer Stack (Priority Order)**
+Pipelines A and B run in a Web Worker using OffscreenCanvas. The main thread queues bake requests; the worker processes them and writes finished files via the Node.js IPC bridge to the main process, which writes to disk. The main thread is never blocked by a bake.
+
+---
+
+## 7. Coat Layer Stack
+
+The compositor always runs at **1024×1024**. Generators are never resolution-aware. Downsampling to lower tiers uses a Lanczos filter after compositor completion. A parallel normal map pipeline runs alongside, producing a 1024px normal map.
 
 | Priority | Layer |
-| :---- | :---- |
+|----------|-------|
 | 0 | Base coat colour |
 | 10 | Point overlay (legs, mane, tail colour) |
 | 20 | Dun markings (dorsal stripe, leg bars) |
@@ -139,475 +162,474 @@ module.exports \= {
 | 90 | Shading multiply |
 | 255 | Runtime overlays (scars, clothing — grazing/detail only) |
 
-The compositor ALWAYS runs at 1024×1024. Generators are NEVER resolution-aware. Downsampling to lower tiers uses a Lanczos filter after compositor completion. The compositor also runs a parallel normal map pipeline producing a 1024px normal map alongside the colour map.
+Runtime overlays (priority 255) are never baked. They are composited dynamically in grazing and detail view only, applied to the live render. Far-distance imposters do not reflect runtime overlays until the next mode entry.
 
-**⚠️  Open Ambiguities & Decisions Required**
+**⚠️ Open Decision**: Normal map regeneration for scars is undefined. Scars ideally produce raised/indented surface detail requiring normal map modification. Decision required: are scars colour-only overlays (normal map immutable after birth), or does the normal map regenerate when scars are added? **Non-blocking but affects visual quality.**
 
-* Transparency and blending order for overlapping horses is unresolved. Options: painter's algorithm (correct but per-frame sorting), Z-buffer with alpha cutout (no sorting, hard edges on mane/tail), or order-independent transparency (expensive). Must decide before building the horse renderer.
+---
 
-* Shared vs. separate renderer instances for grazing mode and running mode bake is undefined. Shared WebGL state between a live render and a bake process is a source of subtle bugs.
+## 8. 3D Model & Rigging
 
-* Normal map regeneration for post-birth scars is undefined. Are scars colour-only overlays, or does the normal map regenerate when scars are added?
+### Base Mesh
 
-# **6\. 3D Model & Rigging**
+One base horse mesh, authored in Blender at real-world scale (1.5–1.7m at shoulder). Target polygon count: 800–1,500 triangles. Low poly is intentional — detail comes from textures and normal maps. Exported as GLTF/GLB.
 
-## **Base Mesh**
+### Morph Targets (Shape Keys)
 
-One base horse mesh, authored in Blender at real-world scale (1.5–1.7m at shoulder). Polygon count: 800–1500 triangles. Low poly is appropriate — detail comes from textures and normal maps, not geometry. Exported as GLTF/GLB with Y-up orientation.
+Morph targets blend the base neutral form continuously, driven by the horse's proportions data. Applied via `morphTargetInfluences` in Three.js.
 
-## **Morph Targets (Shape Keys)**
+**Important**: Morph targets do not affect UV coordinates. Very long-legged horses will have slightly compressed markings in UV space. This is a known, accepted tradeoff — it reads as natural variation.
 
-Morph targets blend the base neutral form continuously. Applied via morphTargetInfluences in Three.js, driven by the horse's proportions data in its genome JSON. IMPORTANT: Morph targets do NOT affect UV coordinates. This is a known and accepted tradeoff — very long-legged horses will have slightly compressed markings, which reads as natural.
+Core morph targets (not exhaustive): `legLength`, `neckLength`, `dishFace`, `broadForehead`, `heavyBuild`, `fineBuild`, `highWithers`, `broadChest`.
 
-Morph targets include (not exhaustive): legLength, neckLength, dishFace, broadForehead, heavyBuild, fineBuild, highWithers, broadChest.
+**⚠️ Open Decision**: The complete required list of core animation semantic names and morph target names that every model must implement has not been written. This must be documented before any modding guide is published.
 
-## **The Landmark System**
+### The Landmark System
 
-Landmarks are named semantic positions on the horse mesh. They decouple coat generators from the UV map — generators say 'place marking at FOREHEAD' and the landmark system translates that to current UV coordinates. If the UV map ever changes, only the landmark file updates. Generators are untouched.
+Landmarks are named semantic positions on the horse mesh. They decouple coat generators from the UV map. Generators say "place marking at FOREHEAD"; the landmark system translates that to current UV coordinates. If the UV map ever changes, only the landmark file updates.
 
-Landmarks are generated automatically via a Blender Python export script. Named Empty objects in the Blender scene are projected onto the mesh surface, UV coordinates found, and the landmark JSON written automatically. Modders use the same workflow.
+Landmarks are generated automatically by a Blender Python export script. Named Empty objects in the scene are projected onto the mesh surface, UV coordinates found, and the landmark JSON written. Modders use the same workflow.
 
-Every horse stores the landmark version it was generated with. When the UV map updates, the version increments. Old horses flag for re-bake. All previous landmark files ship with every game update.
+Every horse stores the landmark version it was generated with. On UV map update, the version increments. Old horses are flagged for re-bake. All previous landmark files ship with every game update.
 
-Coat generators receive a lookup function — never raw UV coordinates:
-
-alterCoat: (ctx) \=\> {
-
-  const foreheadUV \= ctx.landmark('forehead');
-
-  const faceRegion \= ctx.region('face');
-
+```javascript
+alterCoat: (ctx) => {
+  const foreheadUV = ctx.landmark('forehead');
+  const faceRegion = ctx.region('face');
   // draw at foreheadUV within faceRegion
-
 }
+```
 
-## **Model Registry**
+### Model Registry
 
 The engine never loads a model file directly. It loads whichever model is registered under a semantic ID. All mappings from engine semantic names to GLTF internal names live in the registry. Modders can register new models or override existing ones.
 
-**⚠️  Open Ambiguities & Decisions Required**
+In Electron, the model registry is a JSON file on disk in the game's install directory. Mod registries live in the user's mod folder. The engine merges them at startup.
 
-* The complete list of required core animation semantic names and morph target names every model must implement has not been formally written out. Must be documented before any modding guide is written.
+---
 
-# **7\. UV Mapping & Coat Textures**
+## 9. UV Mapping & Coat Textures
 
-## **Texture Resolution**
+All coat generation runs at **1024×1024**. Single working resolution. Generators are never resolution-aware. Downsampling is handled externally.
 
-1024×1024 for ALL coat generation. Single working resolution. Generators are never resolution-aware. Downsampling is handled externally after generation.
+### Seam Placement
 
-## **Seam Placement**
-
-| Seam | Location & Rationale |
-| :---- | :---- |
+| Seam | Location |
+|------|----------|
 | Body | Centreline of belly, chest to tail base. Markings almost never cross the belly midline. |
 | Legs | Down the back of each cannon bone and pastern to hoof. Always faces away from camera. |
-| Head | Under jaw, throatlatch to chin. Keeps entire face as one uninterrupted island. |
-| Ears | Inner surface of each ear. Small enough that placement rarely matters. |
-| Mane / Tail / Forelock | Entirely separate models — no seams needed on base body for these. |
+| Head | Under jaw, throatlatch to chin. Keeps the entire face as one uninterrupted island. |
+| Ears | Inner surface of each ear. |
+| Mane / Tail / Forelock | Entirely separate models — no seams on base body. |
 
-## **UV Island Layout**
+### UV Island Layout
 
-All sides of the horse receive EQUAL UV real estate. The horse wanders and faces both directions — left and right must have identical texel density. No mirroring of legs — each leg has its own unique UV island to support fully asymmetric markings.
+All sides receive equal UV real estate. The horse faces both directions in all modes — left and right must have identical texel density. Each leg has its own unique UV island to support fully asymmetric markings.
 
-| UV Region | Approximate Allocation |
-| :---- | :---- |
-| Left body side | \~25% of UV space |
-| Right body side | \~25% of UV space |
-| Head | \~10% |
-| Each leg (×4) | \~5% each \= 20% total |
-| Mane/tail reference / misc | \~10% |
+| Region | Approximate Allocation |
+|--------|----------------------|
+| Left body side | ~25% |
+| Right body side | ~25% |
+| Head | ~10% |
+| Each leg (×4) | ~5% each = 20% total |
+| Misc / mane reference | ~10% |
 
-## **Cutie Mark System**
+### Cutie Mark System
 
-The cutie mark is a screen-space decal, not a UV-space texture. A named anchor point (flank\_left, flank\_right) is projected from 3D world space to 2D screen space at render time. The cutie mark image is drawn centred on that point, scaled proportionally. It NEVER stretches with morph deformation.
+The cutie mark is a screen-space decal, not a UV-space texture. A named anchor point (`flank_left`, `flank_right`) is projected from 3D world space to 2D screen space at render time. The cutie mark image is drawn centred on that point. It never stretches with morph deformation.
 
-In Detail View: implemented as Three.js DecalGeometry — sits fractionally above the mesh surface, receives full PBR lighting. On pre-baked sprites: 2D canvas drawImage as a final compositor step. Renders UNDER all post-processing shaders, inheriting all material effects.
+- **Detail View**: implemented as Three.js `DecalGeometry`, sitting fractionally above the mesh surface, receiving full PBR lighting.
+- **Pre-baked sprites**: 2D canvas `drawImage` as a final compositor step, rendered under all post-processing shaders.
 
-**⚠️  Open Ambiguities & Decisions Required**
+**⚠️ Open Decision**: Far-distance imposter baking must include a cutie mark pass. The pipeline for this is not defined.
 
-* When rendering a horse as a far-distance imposter, the cutie mark must be incorporated into the imposter image. The pipeline for this (does the imposter bake include a decal pass?) is not defined.
+---
 
-# **8\. Normal Maps & Surface Profiles**
+## 10. Normal Maps & Surface Profiles
 
-## **Surface Profile System**
+### Surface Profile System
 
-Surface profiles define microstructure appearance. Each profile contains a tiling normal map and roughness parameters applied over the coat texture. The profile is heritable — a gene can write a surface profile ID into the trait bag, making scales or unusual textures breedable traits.
+Surface profiles define microstructure appearance: a tiling normal map and roughness parameters applied over the coat texture. The profile is heritable — a gene can write a surface profile ID into the trait bag, making scales or unusual textures breedable.
 
-## **Per-Foal Composite Normal Maps**
+### Per-Foal Composite Normal Maps
 
-The normal map compositor runs at birth in parallel with the colour coat compositor. Base layer is the active surface profile's tiling normal map. Gene layers that modify surface type stamp their own tiling normal map into specific UV regions on top. If no gene modifies the normal map, the horse uses the shared default and no custom normal map is stored (a flag in horse data indicates which).
+The normal map compositor runs at birth in parallel with the colour coat compositor. Base layer is the active surface profile's tiling normal map. Gene layers that modify surface type stamp their own tiling normal map into specific UV regions. If no gene modifies the normal map, the horse uses a shared default — a flag in the horse record indicates which, and no custom file is stored.
 
-**⚠️  Open Ambiguities & Decisions Required**
+**⚠️ Open Decision (Blocking)**: Normal map blending ownership is unresolved. The coat compositor produces a generated normal map. The surface profile system provides a tiling normal map. Who combines them — the coat compositor, the material system at load time, or a runtime shader? Must be decided before building either system.
 
-* Normal map blending ownership is unresolved. The coat compositor produces a generated normal map. The surface profile system provides a tiling normal map. Who combines them — the coat compositor, the material system at load time, or a runtime shader? Must be decided before building either system.
+---
 
-* Cartoon shader treatment of surface profiles in running mode: should scales horses look visibly different under cartoon posterisation, or should the shader ignore surface normals for all horses in running mode for visual consistency?
+## 11. Mane, Tail & Forelock System
 
-* Modder shader extension contract: what exactly can modders replace — only material inputs (normal map, roughness), or entire shader passes? Without a formal contract, modded shaders can break the pipeline.
+Mane, tail, and forelock are entirely separate from the base horse mesh. Independent GLTF models with their own UV maps, coat layer stacks, attachment manifests, and physics simulation. The base horse has no mane or tail geometry. The base game ships defaults; modders can replace any independently.
 
-# **9\. Mane, Tail & Forelock System**
+### Physics Simulation
 
-Mane, tail, and forelock are ENTIRELY SEPARATE from the base horse mesh. Independent GLTF models with their own UV maps, coat layer stacks, attachment manifests, and physics simulation. The base horse has no mane or tail geometry. The base game ships defaults; modders can replace any independently.
-
-## **Physics Simulation**
-
-Verlet chain simulation. Each strand: 6–8 connected points. Root point rigidly attached to a named skeleton landmark. All lower points simulated, affected by gravity and horse velocity. Physics parameters are defined in the attachment manifest.
+Verlet chain simulation. Each strand: 6–8 connected points. Root point rigidly attached to a named skeleton landmark. Lower points simulated, affected by gravity and horse velocity.
 
 | Parameter | Effect |
-| :---- | :---- |
+|-----------|--------|
 | strandCount | Number of hair strands simulated |
 | chainLength | Points per strand (6–8) |
-| stiffness | 1.0 \= rigid (braided mane). Low \= flowing fantasy mane. |
+| stiffness | 1.0 = rigid (braided). Low = flowing fantasy mane. |
 | damping | How quickly motion settles |
 | velocityInfluence | How much horse movement affects the mane/tail |
 
-For running mode sprite baking: physics simulation runs forward briefly before capturing each frame, so the mane has settled into a natural resting position. Not simulated in real-time during running mode.
+For running mode sprite baking, physics simulation runs forward briefly before capturing each frame so the mane is in a natural resting position. Not simulated in real-time during running mode.
 
-## **⚠️  CRITICAL UNRESOLVED: Depth Compositing**
-
-A horse viewed from the side has its mane in front of its neck from some angles and behind it from others. This is the single most architecturally consequential unresolved question in the rendering system. Must be resolved before building either the mane system or the main horse renderer.
+**⚠️ Open Decision (Blocking)**: Depth compositing for mane vs neck is unresolved. A horse viewed from the side has its mane in front of its neck from some angles and behind it from others. Must be resolved before building either the mane system or the main horse renderer.
 
 | Option | Tradeoff |
-| :---- | :---- |
-| Accept interpenetration artifact | Simplest. Mane sometimes visually clips through neck. Aesthetics cost. |
-| Stencil buffer approach | Correct result. Constrains how other transparency in the scene works. |
-| Per-frame depth sorting (separate draw calls) | Correct result. Performance cost. Complexity cost. |
+|--------|----------|
+| Accept interpenetration | Simplest. Mane sometimes clips through neck. |
+| Stencil buffer | Correct result. Constrains transparency elsewhere in scene. |
+| Per-frame depth sort | Correct result. Performance and complexity cost. |
 
-**⚠️  Open Ambiguities & Decisions Required**
+---
 
-* Collision between multiple horses' mane physics chains when horses stand close together is not addressed. Options: accept visual interpenetration, implement cheap inter-chain repulsion, or enforce minimum distances between job locations.
+## 12. Appendage System
 
-# **10\. Appendage System**
+Appendages (wings, horns, armour, etc.) are independent 3D models attaching to the horse at named landmark points. The horse model is never modified. Maximum 5 appendages per horse.
 
-Appendages (wings, horns, armour, etc.) are independent 3D models that attach to the horse at named landmark points. The horse model is NEVER modified. The engine composes them at load time. Maximum 5 appendages per horse.
+The engine finds the host landmark's position and surface normal in the horse's current morphed space. The appendage root bone is placed there with orientation from the surface normal. Morph targets automatically shift landmark positions — appendages follow body deformation.
 
-## **Attachment Resolution**
+### Animation Bindings
 
-The engine finds the host landmark's position and surface normal in the horse's current morphed space. The appendage root bone is placed at that position with orientation from the surface normal. Morph targets automatically shift landmark positions — appendages follow body deformation automatically.
+Appendage animations play on their own additive layer above the horse's base animation. They bind to semantic game event triggers: `on_jump`, `on_idle`, `on_gallop`. Multiple appendages can respond to the same trigger; priority determines the winner.
 
-## **Animation Bindings**
+**Policy**: Clothing cannot interact with genetics. Clothing is player-applied via the appendage system. Genetics-driven appendages (wings, horns) are separate from clothing in the data model. These two categories must never be conflated.
 
-Appendage animations play on their own additive layer above the horse's base animation. They bind to semantic game event triggers (on\_jump, on\_idle, on\_gallop). Multiple appendages can respond to the same trigger; priority determines the winner.
+**⚠️ Open Decision**: Running mode sprite baking must handle arbitrary modded appendages. The cartoon shader is not guaranteed to work on all possible geometry. A modder validation tool or a mechanism for supplying hand-drawn running sprites should be designed.
 
-**⚠️  Open Ambiguities & Decisions Required**
+---
 
-* Data model boundary between genetics-driven appendages and player-applied clothing is not formally defined. Should probably be an explicit policy that clothing cannot interact with genetics.
+## 13. Animation System
 
-* The running mode sprite bake must handle arbitrary modded appendages. The cartoon shader is not guaranteed to work on all possible geometry. A modder validation tool or mechanism for supplying hand-drawn running sprites should be considered.
-
-# **11\. Animation System**
-
-## **Layer Architecture**
+### Layer Architecture
 
 | Layer | Drives | Used By |
-| :---- | :---- | :---- |
-| layer\_full\_body | All bones | Locomotion animations |
-| layer\_upper\_body | Spine, neck, head | Actions, head movements |
-| layer\_legs\_front | Front legs only | Specialised gaits |
-| layer\_legs\_rear | Rear legs only | Specialised gaits |
-| layer\_tail | Tail root | Tail expressions (before physics takes over) |
+|-------|--------|---------|
+| layer_full_body | All bones | Locomotion animations |
+| layer_upper_body | Spine, neck, head | Actions, head movements |
+| layer_legs_front | Front legs only | Specialised gaits |
+| layer_legs_rear | Rear legs only | Specialised gaits |
+| layer_tail | Tail root | Tail expressions (before physics takes over) |
 | Appendage layers | Appendage bones | Per appendage, always additive |
 
-## **Neutral Poses**
+### Neutral Poses
 
-Every animation must start and end at a declared Neutral Pose. Neutral poses are named stable interruptible states. Core neutral poses: neutral\_standing, neutral\_gallop\_mid, neutral\_trot\_mid, neutral\_alert, neutral\_grazing. Mods can register additional neutral poses.
+Every animation must start and end at a declared Neutral Pose. Core neutral poses: `neutral_standing`, `neutral_gallop_mid`, `neutral_trot_mid`, `neutral_alert`, `neutral_grazing`. Mods can register additional neutral poses.
 
-## **Animation Types & Transitions**
+### Animation Types
 
 | Type | Behaviour | Transition Rule |
-| :---- | :---- | :---- |
-| Locomotion | Cyclic. Lives on layer\_full\_body. Time-scales with speed. | Synchronised cross-fade at shared phase points (e.g. moment of full extension). Upward transitions feel snappy. Downward transitions feel like horse collecting. |
-| Action | One-shot. Plays to completion, then returns to base layer. | Interrupts base layer. Additive blend on appropriate body layer. Fades out on finish. |
-| Idle | Low-energy cyclic. Suppressed when locomotion speed above a walk. | Frozen cross-fade from locomotion freeze pose. |
+|------|-----------|----------------|
+| Locomotion | Cyclic. Lives on layer_full_body. Time-scales with speed. | Synchronised cross-fade at shared phase points. Upward transitions: snappy. Downward: horse collecting. |
+| Action | One-shot. Plays to completion, returns to base layer. | Interrupts base layer. Additive blend on body layer. Fades out on finish. |
+| Idle | Low-energy cyclic. Suppressed above walk speed. | Frozen cross-fade from locomotion freeze pose. |
 
-## **Running Mode Tag**
+### Running Mode Tag
 
-Every animation descriptor includes a running mode eligibility flag. eligible: false is the default for all mod animations. eligible: true allows running mode play, but users can still override to false in settings. isBuiltin: true (gallop, walk, idle standing) cannot be disabled by anyone. Filtered registry built at mode start — immutable for session.
+Every animation descriptor includes a running mode eligibility flag. `eligible: false` is the default for mod animations. `eligible: true` allows running mode play but users can still override. `isBuiltin: true` (gallop, walk, idle standing) cannot be disabled. A filtered registry is built at mode start and is immutable for the session.
 
-**⚠️  Open Ambiguities & Decisions Required**
+**⚠️ Open Decision (Blocking)**: Audio system is entirely undefined. If audio sync hooks fire on animation events (hoof sounds, vocalisations), this must be designed into the animation event system from the start. Retrofitting is painful.
 
-* Audio system is entirely undefined. If audio sync hooks need to fire on animation events (hoof sounds, vocalisations), this must be designed into the animation event system from the start.
+**⚠️ Open Decision (Blocking)**: Paired animation interruption behaviour is undefined. Mutual grooming requires two horses playing complementary clips simultaneously. What happens if one horse is reassigned mid-paired-animation?
 
-* Paired animation system for social interactions (mutual grooming requires two horses playing complementary clips simultaneously) has no defined interruption behaviour. What happens if one horse is reassigned mid-paired-animation?
+---
 
-# **12\. Camera System**
+## 14. Camera System
 
-## **Spherical Coordinate Camera**
+### Spherical Coordinate Camera
 
-The camera always points at world origin (crystal ball centre). Position is derived from three values: polar angle, azimuth, and radius.
+The camera always points at world origin (crystal ball centre). Position derived from polar angle, azimuth, and radius.
 
+```javascript
 camera.position.set(
-
-  radius \* Math.sin(polar) \* Math.cos(azimuth),
-
-  radius \* Math.cos(polar),
-
-  radius \* Math.sin(polar) \* Math.sin(azimuth)
-
+  radius * Math.sin(polar) * Math.cos(azimuth),
+  radius * Math.cos(polar),
+  radius * Math.sin(polar) * Math.sin(azimuth)
 )
-
 camera.lookAt(worldOrigin)
+```
 
 | Control | Input | Constraint |
-| :---- | :---- | :---- |
-| Azimuth (left/right) | A / D keys | Wraps freely 0 to 2π |
-| Polar (up/down) | W / S keys | Clamped — cannot go below ground. Can traverse full sphere surface including over the top. |
-| Radius (zoom) | Scroll wheel | Tight range. Always feels like peering into sphere from outside. |
+|---------|-------|-----------|
+| Azimuth | A / D keys | Wraps freely 0 to 2π |
+| Polar | W / S keys | Clamped — cannot go below ground. Can traverse full sphere including over the top. |
+| Radius | Scroll wheel | Tight range. Always feels like peering into sphere from outside. |
 
-Default polar angle: 45-degree game isometric. Camera decelerates as it approaches polar limits (soft stop, never a hard snap). WASD input is suppressed entirely during UI form entry — resumes when form loses focus.
+Default polar angle: 45-degree isometric. Camera decelerates approaching polar limits (soft stop, never hard snap). WASD suppressed during UI form entry — resumes when form loses focus.
 
-## **Crystal Ball Edge Shader**
+### Crystal Ball Edge Shader
 
-The 3D scene renders to a circular render target. The edge shader applies vignette darkening, chromatic aberration, and lens distortion toward the rim. Distortion is more prominent at maximum zoom-out (god far from ball), less at close zoom. All parameters tuned during testing.
+The 3D scene renders to a circular render target. The edge shader applies vignette darkening, chromatic aberration, and lens distortion toward the rim. Distortion is more prominent at maximum zoom-out. All parameters tuned during testing.
 
-**⚠️  Open Ambiguities & Decisions Required**
+**⚠️ Open Decision (Blocking)**: The render target handoff between the 3D renderer and the crystal ball edge shader needs a defined data contract — which system owns the render target, and what does the shader receive. Must be decided before building the camera system.
 
-* Ground constraint mechanism needs a formal definition per environment. Either a world-space plane at defined Y, or a minimum polar angle in the environment definition file. Without a formal contract, modders cannot specify this correctly.
+---
 
-* The render target handoff — the crystal ball edge shader needs both the 3D scene colour texture and the ball boundary in screen space. Whether this shader lives in the 3D renderer or the UI compositor, and what data contract exists between them, is not yet defined.
+## 15. Grazing Mode
 
-# **13\. Grazing Mode**
+### Scene Layer Structure
 
-## **Concept & Art Direction**
+| Layer | Contents |
+|-------|----------|
+| Background | Sky, distant terrain silhouettes, atmospheric elements. Mostly static. Clouds drift. |
+| Mid-background | Large environmental features (tree lines, cliff faces). Low poly. Never interactive. No horses. |
+| Mid-ground | All horses. Highest quality rendering. Ground surface, rocks, water, props, job locations. |
+| Foreground | Elements between camera and horses. Slight depth-of-field blur. Compositional frame. |
 
-Grazing mode is a diorama viewed through a crystal ball. The player is an ancient god watching their herd through a precious glass sphere. Every artistic decision reinforces this framing. The scene is a theatre stage art-directed for the fixed camera angle. Everything is designed for the god's perspective looking into the ball.
+### Fog Rules
 
-## **Scene Layer Structure**
+Fog is a depth cue only, never an atmosphere blanket. Height-based ground fog only, sitting below ~0.5m. Catches horse legs slightly in forest/plains environments. Lifts completely on beach and mountain. Distance fog affects background layer only — never touches horses. Horses always read crisply.
 
-| Layer | Contents & Performance |
-| :---- | :---- |
-| Background | Sky, distant terrain silhouettes, atmospheric elements. Mostly static — essentially free to render. Clouds drift. Single plane mesh with painted/procedural texture. |
-| Mid-background | Large environmental features (tree lines, cliff faces, hills). Low poly. Never interactive. No horses. |
-| Mid-ground | Where all horses live. Highest quality rendering. Ground surface, rocks, water features, props, all job locations. |
-| Foreground | Elements between camera and horses. Slight depth-of-field blur. Acts as compositional frame reinforcing depth. |
+### LOD System
 
-## **Fog Rules**
+| Tier | Quality | Approximate Count |
+|------|---------|------------------|
+| Full quality | 512px coat. Live physics mane/tail. Full skeleton. Real-time shadows. | 3–8 horses near camera centre |
+| Medium LOD | 256px coat. Baked swaying mane/tail. Skeleton every other frame. Blob shadow. | 5–10 horses |
+| Imposter | Flat billboard quad, pre-rendered image, updates every 2–3 seconds. | All remaining horses |
 
-Fog is a DEPTH CUE only, never an atmosphere blanket. Height-based ground fog only, sitting below \~0.5m. Catches horse legs slightly in forest/plains. Lifts completely on beach and mountain environments. Distance fog only affects the background layer — never touches horses. Horses always read crisply against whatever is behind them.
+Hysteresis rule: upgrade threshold distance ≠ downgrade threshold distance. Gap between them prevents oscillation near the boundary. LOD transitions are instant (snap, no cross-fade). Upgrade rate limited — at most N horses upgrade per frame, priority to horses nearest camera centre.
 
-## **LOD System**
+Imposters regenerated every time Grazing Mode is entered. Horses without a valid imposter show a placeholder during regeneration.
 
-| Tier | Quality | Cost |
-| :---- | :---- | :---- |
-| Full quality (close range) | 512px coat (standard) / 256px (low graphics). Live physics mane/tail. Full skeleton animation. Real-time shadows. | Most expensive. Limit to 3–8 horses near camera centre. |
-| Medium LOD (mid range) | 256px coat. Baked swaying mane/tail animation. Skeleton updates every other frame. Blob shadow only. | Moderate. 5–10 horses. |
-| Imposter (far range) | Flat billboard quad, pre-rendered image, updates every 2–3 seconds. | Essentially free. All remaining horses. |
+**⚠️ Open Decision (Blocking)**: Imposter billboarding type is unresolved. Options: spherical (always faces camera — perspective incorrect at off-angles), cylindrical (rotates vertical axis only — industry standard for characters), fixed-direction (faces bake angle only). Must decide before building the imposter shader.
 
-Hysteresis rule: The upgrade threshold distance is not the same as the downgrade threshold distance. The gap between them prevents oscillation for horses near the boundary. LOD tier transitions are instant (snap, no cross-fade). Upgrade rate limited — at most N horses upgrade per frame. Priority goes to horses nearest camera centre.
+**⚠️ Open Decision (Blocking)**: Transparency and blending order for overlapping horses is unresolved. Options: painter's algorithm (correct but per-frame sorting), Z-buffer with alpha cutout (no sorting, hard edges on mane/tail), or order-independent transparency (expensive). Must decide before building the horse renderer.
 
-Imposter regeneration: All imposters regenerated every time grazing mode is entered. Horses without a valid imposter show a placeholder during regeneration. Acceptable because mode swaps are infrequent.
+### Job System
 
-## **Job System**
+A job location is a named point in the environment with an animation type, optional prop, and a capacity. Horses are assigned to job locations when Grazing Mode is entered. Capacity prevents clipping. Social jobs require minimum occupancy. `requiresAdult` flag marks locations foals cannot hold independently.
 
-A job location is a named point in the environment with an animation type, optional prop, and capacity. Horses are assigned to job locations when grazing mode is entered. Capacity prevents clipping. Social jobs require minimum occupancy (no single horse performing a social animation alone). requiresAdult flag marks locations foals cannot hold independently.
+### Foal Behaviour in Grazing Mode
 
-Paired animations for social interactions (mutual grooming) assign two horses as a unit and release them as a unit.
+Foals (under 1yr) are not independent agents in grazing mode. A foal is an attachment to its mother's scene entity. Position is always derived from the mother's position plus an offset. Foals never pathfind independently and never hold job locations independently.
 
-**⚠️  Open Ambiguities & Decisions Required**
+| State | Condition | Behaviour |
+|-------|-----------|-----------|
+| Playing | Daytime, mother at stationary job | Gentle wandering within leash radius. Small kicks, circling. |
+| Nursing | Nursing interval elapsed, mother stationary | Foal moves to mother's flank. Paired nursing animation on both. |
+| Sleeping | Night / rest period | Foal lies down near mother with small random offset. |
+| Grazing | Yearling transition (approaching 1yr) | Foal begins grazing near mother before graduating to independence. |
 
-* Imposter billboarding type is unresolved — MUST DECIDE BEFORE BUILDING IMPOSTER SHADER. Options: spherical (always faces camera — perspective incorrect at off-angles), cylindrical (rotates vertical axis only — industry standard for characters), fixed-direction (faces bake angle only).
+Nursing interval is an epigenetic value set at birth. At exactly 1 year, foals graduate to full independence and job eligibility.
 
-* Lighting rig interaction with imposters: imposters baked under neutral lighting won't match dramatic scene lighting. Policy: tint imposter quads with scene colour grade as approximation. Exact implementation not defined.
+---
 
-* Environmental object occlusion policy: when a horse is behind a tree, does this affect its LOD priority? Does clicking a partially occluded horse register?
+## 16. Running Mode
 
-* Formal vs. informal environment layer system: must objects declare their layer in scene files (formal), or just use Z-depth placement (informal)? Formal allows global layer-based render settings but requires modders to declare layer membership.
+Running mode is a side-scrolling runner. It is deliberately cartoony — a distinct visual world from grazing mode. **No 3D rendering occurs during running mode.** Everything is pre-baked sprites. The cartoon aesthetic is a design choice.
 
-* Depth of field during camera movement: does DOF recalculate dynamically (requires depth buffer pass) or is it a fixed screen-space blur on the foreground layer?
+See TravelSpecification.md for the full running mode gameplay spec including canvas size, physics constants, and obstacle rules.
 
-# **14\. Running Mode**
+### Sprite Pipeline
 
-Running mode is a Sonic-style side-scrolling runner. It is DELIBERATELY cartoony — a different artistic world from grazing mode. The visual simplicity is intentional. NO 3D rendering occurs during running mode. Everything is pre-baked sprites. The cartoon aesthetic is a design choice, not a limitation.
+Running mode sprites are baked at birth using the cartoon shader applied to the 3D scene. Two spritesheets per horse: left-facing and right-facing. These are never mirrored — all horses are treated as fully asymmetric. Sprites are stored permanently and never reflect post-birth changes.
 
-## **Sprite Pipeline**
-
-Running mode sprites are baked at birth using the cartoon shader applied to the 3D scene. Two spritesheets per horse: left-facing and right-facing. These are NEVER MIRRORED — all horses are treated as fully asymmetric. Sprites are stored to disk permanently and NEVER reflect post-birth changes.
-
-## **Cartoon Shader Stages**
+### Cartoon Shader Stages
 
 | Stage | Effect |
-| :---- | :---- |
+|-------|--------|
 | Posterisation | Reduces continuous PBR shading to 3–4 discrete light bands. The foundational cel-shading step. |
 | Outline pass | Silhouette lines via back-face expansion. Interior edges via normal-change detection. |
-| Colour simplification | Saturation boost. Compresses subtle coat tone variations toward flatter, more saturated values. |
-| Specular suppression | Removes or heavily reduces PBR specular highlights. Cartoon horses don't have shiny coats. |
+| Colour simplification | Saturation boost. Compresses subtle coat tones toward flatter, more saturated values. |
+| Specular suppression | Removes or heavily reduces PBR specular highlights. Cartoon horses don't shine. |
 
-Bake lighting: canonical neutral running-mode light defined in a config file. All horses baked under identical lighting. Running maps apply colour grade overlays at runtime on top — horses look consistent against all running map overlays.
+Bake lighting: canonical neutral running-mode light defined in a config file. All horses baked under identical lighting. Running map colour grade overlays apply at runtime on top — horses remain visually consistent across all environments.
 
-**⚠️  Open Ambiguities & Decisions Required**
+**⚠️ Open Decision**: Cartoon shader treatment of modded surface profiles — scaled horses will have different normal data feeding posterisation. Is this visual variety intentional, or should all horses use flat lighting in running mode for consistency?
 
-* Cartoon shader treatment of modded surface profiles — scales horses will have different normal data feeding posterisation. Is this visual variety intentional, or should all horses use flat lighting in running mode?
+---
 
-* Modded appendages in the cartoon shader bake — shader not guaranteed to work on arbitrary geometry. A modder validation tool or hand-drawn sprite submission mechanism should be considered.
+## 17. Asset Storage & Caching
 
-* Running sprite re-bake policy — currently never updated after birth. If this policy ever changes, the pipeline needs formal definition.
+In Electron, all persistent assets are files on the local filesystem under `AppData/GlassHorses/`. The Node.js main process owns all disk writes. The renderer process requests writes via IPC. No renderer process writes to disk directly.
 
-# **15\. Detail View**
+| Asset | Format | Path | Lifetime |
+|-------|--------|------|---------|
+| Atlas thumbnails (L+R) | 128px PNG, atlas-packed | `AppData/.../atlas/sheet_N.png` + `atlasIndex.json` | Forever from birth |
+| Running sprites (L+R) | 256px PNG spritesheet, cartoon | `AppData/.../sprites/horse_[id].png` | Forever from birth |
+| Detail static frame | 1024px PNG | `AppData/.../detail/horse_[id].png` | Generated on first click; cached |
+| Grazing real-time | Live render | RAM only | Never stored |
+| Imposter images | 64–128px PNG, 8 angles | `AppData/.../imposters/horse_[id]_[angle].png` | Re-baked on each mode entry |
+| Horse game data | JSON fields in SQLite | SQLite DB file | Forever |
+| Genome + epigenetics | Stored in SQLite | SQLite DB file | Forever |
+| Mod assets | GLTF/PNG/JS files | `AppData/.../mods/[modname]/` | Until mod removed |
 
-Full real-time 3D render of a single horse. Free orbit camera. Maximum quality. The player can rotate, tilt, zoom freely around the horse. 1024px coat texture (full resolution — only context where this is displayed live).
+### SQLite Schema Note
 
-Uses the SAME render pipeline as grazing mode — same PBR materials, same lighting rig, same physics mane simulation, same coat texture system. No separate pipeline to maintain.
+The SQLite schema is written to mirror the web PostgreSQL schema as closely as possible. Horse records contain all genome data, epigenetic values, pedigree links, and filesystem paths to baked assets. The only difference between the desktop and web schema is the asset path column — desktop stores a local `AppData` path; web stores a CDN URL or database blob reference. All other columns are identical.
 
-The player can apply any unlocked environment's lighting rig to the detail view. This is the camera mode feature — golden hour, overcast, stable interior, etc. as backdrop for inspecting a horse.
+### IPC Write Pattern
 
-# **16\. Book View & Atlas System**
+```javascript
+// Renderer process (Web Worker) — requests a disk write via IPC
+postMessage({ type: 'WRITE_ASSET', path: 'sprites/horse_123.png', buffer: pngBuffer });
 
-The Book shows all horses as browsable thumbnails. All thumbnails are pre-baked at birth — the Book opens instantly with no generation on demand.
+// Main process — owns all disk access
+ipcMain.on('WRITE_ASSET', (event, { path, buffer }) => {
+  fs.writeFileSync(resolveAppData(path), buffer);
+});
+```
+
+---
+
+## 18. Detail View
+
+Full real-time 3D render of a single horse. Free orbit camera. Maximum quality. 1024px coat texture (full resolution — only context where this is displayed live).
+
+Uses the same render pipeline as Grazing Mode: same PBR materials, same lighting rig, same physics mane simulation, same coat texture system. No separate pipeline.
+
+The player can apply any unlocked environment's lighting rig to the Detail View (golden hour, overcast, stable interior, etc.). This is a camera mode feature only — it does not affect the horse's stored appearance.
+
+---
+
+## 19. Book View & Atlas System
+
+The Book shows all horses as browsable thumbnails. All thumbnails are pre-baked at birth. The Book opens instantly with no on-demand generation.
 
 | Property | Value |
-| :---- | :---- |
+|----------|-------|
 | Atlas sheet size | 2048×2048px — holds 256 thumbnails at 128×128px each |
-| Atlas series | Two series: left-facing and right-facing (stored separately) |
-| Index file | atlasIndex.json maps each horse ID to sheet number and pixel coordinates for both orientations |
+| Atlas series | Two series: left-facing and right-facing (separate files) |
+| Index file | `atlasIndex.json` maps horse ID to sheet number and pixel coordinates for both orientations |
 | Slot management | Next free slot allocated at birth. Slot freed and reused on horse death. |
 | Regeneration | Never regenerated after birth under normal circumstances. |
 
-Clicking a horse thumbnail triggers detail view. If the 1000px detail frame is not cached, it generates (50–150ms, shows loading shimmer). Cached to disk on first generation. Subsequent views instant.
+Clicking a thumbnail triggers Detail View. If the 1024px detail frame is not cached, it generates (50–150ms, shows loading shimmer). Cached to disk on first generation. Subsequent views are instant.
 
-# **17\. Asset Storage & Caching Tiers**
+---
 
-| Tier | Content | Storage | Lifetime |
-| :---- | :---- | :---- | :---- |
-| Atlas thumbnails (L+R) | 128px, atlas-packed | IndexedDB, permanent | Forever from birth |
-| Running sprites (L+R) | 256px spritesheet, cartoon | IndexedDB, permanent | Forever from birth |
-| Detail static frame | 1000px single frame | IndexedDB, lazy | From first click |
-| Grazing real-time | Live render — no baking | RAM only | Never stored |
-| Imposter images | 64–128px, 8 angles | IndexedDB | Re-baked on mode entry |
-| Horse JSON data | Genome, epigenetics, etc. | IndexedDB | Forever |
+## 20. Mod System
 
-# **18\. Mod System**
+### What Modders Can Do
 
-## **What Modders Can Do**
+- Register new genes with custom `alterCoat` and `alterNormal` functions
+- Register new surface profiles (normal maps, roughness maps)
+- Register new appendage models with attachment manifests
+- Register new mane/tail/forelock models with physics parameters
+- Register new animations with JSON descriptors
+- Register new environment scenes with lighting, fog, and object placement
+- Register new environmental prop objects (GLTF or billboard PNG)
+- Register new cutie mark images
+- Override existing registered items by ID (subject to conflict resolution policy)
 
-* Register new genes with custom alterCoat and alterNormal functions
+### Mod Folder Structure (Electron)
 
-* Register new surface profiles (normal maps, roughness maps)
+In Electron, mods are folders placed in `AppData/GlassHorses/mods/[modname]/`. The mod loader reads all mod folders at startup. This is equivalent to the Steam Workshop folder placement on the desktop version.
 
-* Register new appendage models with attachment manifests
+```
+AppData/GlassHorses/mods/
+└── mystic/
+    ├── mod.json          ← Mod manifest (name, version, author, dependencies)
+    ├── genes/
+    │   └── unicorn.js
+    ├── models/
+    │   └── horn.glb
+    └── environments/
+        └── crystal_vale/
+```
 
-* Register new mane/tail/forelock models with physics parameters
+### Validation at Mod Load Time
 
-* Register new animations with JSON descriptors
+- All `hostLandmark` references checked against the horse landmark file
+- All animation `entry/exitNeutral` values checked against the neutral pose registry
+- All model registry entries checked for required core animation and morph target mappings
+- Duplicate allele IDs: hard crash at startup with explicit error message naming the collision
+- Missing landmark or neutral pose references: hard error naming exactly what is missing
 
-* Register new environment scenes with lighting, fog, and object placement
+**⚠️ Open Decision (Blocking)**: Mod load order and conflict resolution policy is not defined. When two mods register the same ID: last-loaded wins? First-loaded wins? Hard error? Must decide before building the mod loader.
 
-* Register new environmental prop objects (3D GLTF or billboard PNG)
+**⚠️ Open Decision**: Modder shader extension contract is not defined. What can modders replace — material inputs only, or entire shader passes? Without a formal contract, modded shaders can break the pipeline.
 
-* Register new cutie mark images
+---
 
-* Override existing registered items by ID (subject to conflict resolution policy)
+## 21. Environmental System
 
-## **Validation at Mod Load Time**
-
-All hostLandmark references checked against horse landmark file. All animation entry/exitNeutral values checked against neutral pose registry. All model registry entries checked for required core animation and morph target mappings. Clear specific error messages for all failures, naming exactly what is missing. Duplicate allele IDs throw a hard crash at startup.
-
-**⚠️  Open Ambiguities & Decisions Required**
-
-* Mod load order and conflict resolution policy is not defined. MUST DECIDE BEFORE BUILDING MOD LOADER. When two mods register the same ID: last-loaded wins? First-loaded wins? Hard error?
-
-* Mod versioning and missing-mod handling: what does a horse look like when a mod gene, appendage, or model it depends on is no longer installed? Fallback behaviour must be defined before the horse data format is finalised.
-
-* Modder shader extension contract: what exactly can modders replace — material inputs only, or entire shader passes? Without a formal contract, modded shaders can break the pipeline.
-
-# **19\. Environmental System**
-
-## **Environmental Object Types**
+### Environmental Object Types
 
 | Type | Description | Best For |
-| :---- | :---- | :---- |
-| Full 3D | GLTF mesh rendered normally. Proper geometry, shadows, normal maps. | Foreground / mid-ground elements player may zoom close to. |
-| Billboard imposter | Flat quad facing camera, displaying a PNG. Modders need no 3D skills. | Distant background elements. Degrades visibly at close range. |
-| Hybrid | Full 3D at close range, billboard beyond a defined distance. Billboard ideally pre-rendered from the scene camera angle. | Recommended for mid-ground objects modders want to look good up close. |
+|------|-------------|----------|
+| Full 3D | GLTF mesh, proper geometry, shadows, normal maps. | Foreground / mid-ground elements near camera. |
+| Billboard imposter | Flat quad facing camera, displaying a PNG. No 3D skills required for modders. | Distant background elements. Degrades at close range. |
+| Hybrid | Full 3D close, billboard beyond a defined distance. | Mid-ground objects modders want to look good up close. |
 
-## **Sky System**
+### Sky System
 
-Physically accurate sky model (Three.js Sky — Preetham or Hosek-Wilkie). Uses the environment's key light direction as sun position. Produces accurate sky colour from any camera angle. Automatically matches the lighting rig. Looks correct from all camera positions including side-on and near-top.
+Physically accurate sky model (Three.js Sky — Preetham or Hosek-Wilkie). Uses the environment's key light direction as sun position. Produces accurate sky colour from all camera angles including side-on and near-top. Automatically matches the lighting rig.
 
-**⚠️  Open Ambiguities & Decisions Required**
+**⚠️ Open Decision**: Formal vs. informal environment layer system. Must objects declare their layer in scene definition files (formal — enables global layer-based render settings), or just use Z-depth placement (informal — simpler for modders)? Must decide before writing the modding guide.
 
-* Formal vs. informal environment layer system: must objects declare their layer in scene files, or just use Z-depth placement? Formal enables global layer-based render settings (e.g. disable shadows on background layer globally). Informal is simpler for modders.
+**⚠️ Open Decision**: Environmental object dynamic state. Can objects change during a grazing session (depleting hay bale, filling water trough)? Recommend explicitly ruling this out to prevent scope creep. If ruled in, a state system is required.
 
-* Ground plane definition per environment: how environments specify the camera polar angle floor constraint is not formalised.
+---
 
-* Environmental object state: can objects change during a grazing session (depleting hay bale)? If yes, needs a state system. Should probably be explicitly ruled out to prevent scope creep.
+## 22. Post-Birth Appearance Changes
 
-# **20\. Foal Behaviour**
+Horses can gain scars, clothing, and equipment after birth. These affect appearance in **Grazing Mode and Detail View only**. Running mode sprites are never updated.
 
-Foals are NOT independent agents. A foal is an attachment to its mother's scene entity. Position is always derived from the mother's position plus an offset. Foals never pathfind independently. Foals never hold job locations independently. When the mother moves, the foal follows.
+Post-birth modifications are composited dynamically at priority 255 on top of the baked base coat. Clothing uses the appendage system. Scars are coat layer overlays. Neither is baked — they are applied live each frame.
 
-| State | Condition | Behaviour |
-| :---- | :---- | :---- |
-| Playing (default) | Daytime, mother at stationary job | Gentle wandering within leash radius. Occasional bursts — small kicks, circling. Most visually alive state. |
-| Nursing | Nursing interval elapsed, mother stationary | Foal moves to mother's flank. Paired nursing animation on both. Returns to playing after. |
-| Sleeping | Night / rest period | Foal lies down near mother with small random offset. Mother stands guard or grazes slowly nearby. |
-| Grazing | Yearling transition | Foal begins grazing near mother before graduating to full job eligibility. |
+Clothing and scars load only for horses at close LOD range. Far-distance imposters do not reflect post-birth changes until the next mode entry.
 
-Nursing interval is an epigenetic value — set at birth, never changes. Adds natural individuality to observed behaviour without additional systems. At yearling age, foals graduate to full job eligibility and become independent agents.
+**Policy**: Clothing cannot interact with genetics. This is absolute.
 
-# **21\. Post-Birth Appearance Changes**
+---
 
-Horses can gain scars, clothing, and equipment after birth. These affect appearance in GRAZING MODE and DETAIL VIEW ONLY. Running mode sprites are NEVER updated — the birth sprite is the running sprite forever.
+## 23. Performance Budgets
 
-Post-birth modifications are implemented as additional coat layers composited dynamically on top of the baked base coat (priority 255 reserved for runtime overlays). Clothing uses the appendage system. Scars are coat layer overlays.
+| Mode | Target | Main Bottleneck |
+|------|--------|----------------|
+| Running Mode | Maximum FPS. Must never drop below playable. | Canvas sprite blitting. No GPU cost per horse. |
+| Grazing Mode | Minimum 20 FPS. Stuttering acceptable. | PBR shader on close-range horses. Mane/tail physics chains. Imposter regen at mode entry. |
+| Detail View | 60 FPS target. | Trivial. One horse, low poly. |
 
-Clothing and scars load only for horses at close LOD range. Far-distance imposters do not reflect post-birth changes until the next mode entry (when imposters are regenerated).
+**⚠️ Open Decision**: Graphics quality settings matrix is not fully defined. At minimum: coat texture resolution scaling, shadow quality scaling. Additional quality tiers needed before first release.
 
-**⚠️  Open Ambiguities & Decisions Required**
+**⚠️ Open Decision**: Fallback mode for low-end integrated GPUs that cannot sustain 20 FPS in Grazing Mode. Minimum viable fallback should be defined before launch.
 
-* Normal map regeneration for scars is undefined. Scars ideally have raised/indented surface detail requiring normal map modification. Is the normal map immutable after birth (scars are colour-only overlays), or regenerated?
+---
 
-* The data model boundary between appendage-type clothing and genetics-driven appendages needs explicit definition. Can clothing interact with genetics? Recommend explicit policy of 'no'.
+## 24. Central Event Bus
 
-# **22\. Performance Budgets**
+**⚠️ Open Decision (Blocking)**: No central event bus architecture is defined. Before building any cross-system communication (job system → animation, genetics → renderer, camera → LOD, IPC → storage), a named event bus must be designed. All systems should publish and subscribe to events rather than calling each other directly. This is required before any multi-system feature is built.
 
-| Mode | Target | Main Cost |
-| :---- | :---- | :---- |
-| Running Mode | Maximum FPS. Never drops below playable. | Sprite blitting only. No GPU cost per horse. Bottleneck: canvas operations. |
-| Grazing Mode | Minimum 20 FPS. Stuttering acceptable. | PBR shader on close-range horses. Mane/tail physics chains. Imposter regeneration at mode entry. |
-| Detail View | 60 FPS target. | Trivial. One horse, low polygon count. |
+---
 
-**⚠️  Open Ambiguities & Decisions Required**
+## 25. Summary: All Open Decisions
 
-* The complete graphics quality settings matrix is not defined. At minimum: coat texture resolution scales, shadow quality scales. What else reduces on low graphics?
-
-* A fallback mode for low-end integrated GPUs that cannot maintain 20 FPS in grazing mode has not been designed.
-
-# **23\. Summary: All Open Decisions**
-
-## **BLOCKING — Must Decide Before Building**
-
-The following decisions will cause painful refactoring if deferred:
+### Blocking — Must Decide Before Building
 
 | Decision | Blocks |
-| :---- | :---- |
-| Mane/tail depth compositing method (interpenetration, stencil, or depth sort) | Horse renderer \+ mane system |
-| Imposter billboarding type (spherical, cylindrical, or fixed) | Imposter shader |
-| Transparency/blending order for overlapping horses | Horse renderer |
-| Mod load order and conflict resolution policy | Mod loader |
+|----------|--------|
 | Central event bus architecture | All cross-system communication |
-| Audio system existence and animation sync hooks | Animation system |
-| Normal map blending ownership | Coat compositor \+ material system |
-| Ground plane definition contract per environment | Camera system \+ environments |
-| Formal vs. informal environment layer system | Scene renderer \+ modding guide |
+| Audio system and animation sync hooks | Animation system |
+| Mane/tail depth compositing method | Horse renderer + mane system |
+| Imposter billboarding type | Imposter shader |
+| Transparency/blending order for overlapping horses | Horse renderer |
+| Normal map blending ownership | Coat compositor + material system |
+| Mod load order and conflict resolution policy | Mod loader |
+| Crystal ball edge shader render target handoff | Camera system |
+| Ground plane definition contract per environment | Camera system + modding guide |
+| Formal vs. informal environment layer system | Scene renderer + modding guide |
+| Paired animation interruption behaviour | Social animation system |
 
-## **NON-BLOCKING — Tune During Testing**
+### Non-Blocking — Tune During Testing or Defer
 
-* All specific numerical values (LOD thresholds, camera speeds, physics parameters, animation cross-fade durations, fog densities)
-
-* Crystal ball edge shader visual parameters (vignette strength, chromatic aberration, lens distortion curve)
-
-* Complete list of required core animation semantic names and morph target names every model must implement
-
-* Graphics quality settings matrix beyond coat texture resolution
-
-* Fallback mode for low-end hardware
-
-* Running sprite re-bake policy
-
-* Whether environmental objects can have dynamic state (depleting hay bales, etc.)
-
-* Data model boundary between clothing and genetics-driven appendages
-
-* The canonical test horse genome for regression testing
-
-*Document generated from design conversation. Version 1.0. All systems subject to revision during implementation.*
+- All specific numerical values (LOD thresholds, camera speeds, physics parameters, cross-fade durations, fog densities)
+- Crystal ball edge shader visual parameters (vignette, chromatic aberration, lens distortion curve)
+- Complete required list of core animation semantic names and morph target names
+- Full graphics quality settings matrix
+- Fallback mode for low-end hardware
+- Cartoon shader treatment of modded surface profiles in running mode
+- Running sprite re-bake policy if policy ever changes
+- Whether environmental objects can have dynamic state
+- Normal map regeneration for post-birth scars
+- Cutie mark pass in far-distance imposter baking
+- Save schema migration strategy for new gene loci
+- Missing-mod fallback visual behaviour
+- Modder shader extension contract
+- Canonical test horse genome for regression testing
