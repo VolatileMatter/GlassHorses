@@ -1,101 +1,183 @@
-## Grazing Module: Final Specification
+# Grazing Module Specification
 
-Grazing is the daily survival-to-culture engine. Every horse works. **Herd morale = average of all individual horse morale levels** (0-100). Early game = prey animal survival against predators/Esrohs and the **Necrocratic Dragon**.
+Version 2.0 | Status: Authoritative
+
+---
+
+## Overview
+
+Grazing is the daily management phase where the player assigns every horse in the herd to a role. It is the primary survival and culture-building engine of the game. All resource gathering, skill development, relationship management, and cultural progression happen here or are resolved at the end of the grazing day.
+
+**See also**: RoleSpecification.md (full role definitions), SleepSpecification.md (end-of-day resolution), CultureSpecification.md (culture trait system), TravelSpecification.md (travel phase).
+
+---
 
 ## Access & Flow
+
 ```
-Morning Event → Grazing Screen → 
-Assign ALL horses to roles → Breeding → Food management → 
-[Travel roles if moving] → END DAY → Sleep Resolution
+Morning Event → Grazing Screen → Assign ALL horses to roles → [Breeding] → END DAY → Sleep Resolution
 ```
+
+The player cannot end the day until every horse has been assigned a role. There is no idling state.
+
+---
 
 ## Horse Participation Rules
-- **ALL horses** get roles (no idling)
-- **Physical state modifiers**:
-  | State | Efficiency Impact |
-  |-------|------------------|
-  | Pregnant mare | -20% Forager/Scout |
-  | New mother (foal <1yr) | -25% physical roles, foal +10% skill gain |
-  | Malnourished (1+ levels) | -5% speed per level |
-  | Injured | -15-50% based on severity |
 
-**Individual morale** affects role efficiency: <30 morale = -20% efficiency.
+Every horse must be assigned a role every day, including injured and pregnant horses. Role eligibility depends on the horse's physical state.
 
-## Complete Role List
+### Physical State Modifiers
 
-| Role | Type | Daily XP Gain | Effects |
-|------|------|---------------|---------|
-| **Sentinel** | Daily | +25 XP | Early warnings (critical early-game vs Esroh/predators) |
-| **Forager** | Daily | +30 XP | Biome resources (5 targeting modes) |
-| **Healer** | Daily | +25 XP | Treatments, herb conversion |
-| **Storyteller** | Long-term | +15 XP (Day 8+) | Shares journal → individual morale boost |
-| **Teacher** | Daily | +10 XP | **100 XP ÷ all Students** (1 student optimal) |
-| **Student** | Daily | **2x base XP** | Learns assigned role + Teacher bonus |
-| **Artisan** | Daily | +20 XP | Materials → trade art |
-| **Scout** | Daily | +35 XP | Adjacent tile intel/resources |
-| **Socialize** | Daily | +10 XP | Energy + individual morale recovery (all horses eligible) |
-| **Priest/ess** | Long-term | +20 XP (Day 8+) | Ceremonies boost individual morale |
+| State | Efficiency Impact |
+|-------|------------------|
+| Pregnant mare | −20% Forager/Scout efficiency |
+| New mother (foal under 1yr with her) | −25% physical roles; foal gains +10% skill XP |
+| Malnourished (1+ levels) | −5% speed and strength per level |
+| Injured (walk-capable) | −15–50% efficiency depending on severity |
+| Cannot walk (injured) | Ineligible for physical roles; auto-assigned Storyteller (see below) |
 
-## Forager Targeting System (5 Modes)
-```
-**KNOWN ITEMS** (previously discovered): 100% focus, -40% total yield
-**ANY ITEM** (random biome distribution): Normal yield
-**FOOD ITEMS** (fruits/nuts): +20% food yield, -20% other
-**MEDICINAL** (herbs): Healer conversion ×2
-**TRADE ITEMS** (gems, gold dust): Artisan ×1.5 value
+### Cannot-Walk Horses
 
-Individual targeting per Forager:
-DawnFire → FOOD ITEMS | Ember → KNOWN: Moonstone
-```
+A horse that cannot walk is **automatically assigned to the Storyteller role** the day after the injury occurs. This auto-assignment skips the normal 7-day Storyteller learning period — the horse becomes an active Storyteller immediately. This offset is intentional: it partially compensates for the hard travel block that cannot-walk horses impose on the herd.
 
-**Discovery**: First find unlocks "KNOWN ITEMS" for all Foragers.
+Cannot-walk horses are eligible for Socialize in addition to Storyteller. They are **not** eligible for Priest/ess, Forager, Sentinel, Scout, Healer, Teacher, Student, or Artisan.
+
+Cannot-walk horses who choose to take the Priest/ess role (if the player manually overrides) still require the full 7-day learning period with no output during that time.
+
+### Yearlings (Age 1yr+)
+
+At exactly 1 year of age, a horse graduates from foal status and becomes eligible for all roles without restriction. Prior to this birthday, foals follow their mother and cannot be independently assigned.
+
+### Individual Morale Effect
+
+A horse with individual morale below 30 operates at −20% efficiency in all roles.
+
+---
+
+## Forager Targeting System
+
+Each Forager can be assigned one of five targeting modes. Targeting is set per individual horse.
+
+| Mode | Effect |
+|------|--------|
+| **Known Items** | 100% focus on previously discovered items; −40% total yield |
+| **Any Item** | Normal yield across all biome distributions |
+| **Food Items** | +20% food yield; −20% all other yields |
+| **Medicinal** | Herbs yielded at 2× normal rate for Healer conversion |
+| **Trade Items** | Gems and gold dust yielded at 1.5× Artisan value |
+
+**Discovery**: The first time any item is found, it is added to the "Known Items" list for all Foragers in the herd.
+
+---
 
 ## Food & Malnutrition System
-```
-FOOD (0-100%):
-Grass only: +10%/hour (10hr full recovery)
-FOOD ITEMS: +30-75%/item
-Meals: +100%/serving
 
-MALNUTRITION (0-14 levels):
-End Day 0% food → +1 level (-5% speed/strength per level)
-Healing: 24hrs >50% food → -1 level
-Level 14: Death + journal entry
-```
+### Food Level (0–100%)
+
+| Source | Recovery Rate |
+|--------|--------------|
+| Grass only | +10% per hour (full recovery in ~10 hours) |
+| Food Items (foraged) | +30–75% per item |
+| Prepared meals | +100% per serving |
+
+### Malnutrition (0–14 levels)
+
+- Ending a day at 0% food adds +1 malnutrition level
+- Each level applies −5% speed and strength permanently until healed
+- Healing: 24 consecutive hours above 50% food removes 1 level
+- Level 14: death, with a journal entry generated
+
+---
 
 ## Breeding & Relationships
-```
-Healthy + Fertile → 2min breeding (-5% energy)
-Individual morale effect:
-• Positive relationship: +8 both horses
-• Neutral: 0 change
-• Negative: -10 both horses
-```
-**Herd morale** = average of all individual morale → affects breeding success.
 
-## Weather Effects
+Breeding resolves automatically during the grazing phase when eligible horses are in proximity.
+
+- **Conditions**: Both horses healthy and fertile; −5% energy cost to both
+- **Relationship effect on individual morale**:
+  - Positive relationship: +8 morale to both horses
+  - Neutral: no change
+  - Negative: −10 morale to both horses
+
+**Miscarriage risk**: A pregnant mare runs no miscarriage risk during the grazing phase unless she is attacked. Attack during grazing triggers a miscarriage check.
+
+---
+
+## Herd Morale
+
+```
+HERD MORALE = Average of all individual horse morale values (0–100)
+```
+
+The herd morale cap is **100**. It cannot exceed this value regardless of bonuses.
+
+Cannot-walk horses contribute fully to the herd morale average via Storyteller and Socialize outputs.
+
+### Individual Morale Sources
+
+| Source | Effect |
+|--------|--------|
+| Storytellers sharing memories | +3–8 per horse listening |
+| Socialize role | +5–10 per horse |
+| Priest/ess ceremonies (post-activation) | +10–20 herd-wide |
+| Positive breeding relationship | +8 |
+| Negative breeding relationship | −10 |
+| Malnutrition | −3 per level |
+
+### Herd Morale Thresholds
+
+| Range | Effect |
+|-------|--------|
+| <30 | XP gain −30%; breeding success −50% |
+| 30–60 | Survival focus; no bonuses |
+| 60–80 | Stabilization range |
+| >80 | +15% all yields; joiners may approach herd |
+
+---
+
+## Weather Effects on Grazing
+
 | Weather | Sentinel | Forager | Healer | Socialize |
 |---------|----------|---------|--------|-----------|
-| **Sunny** | Normal | +15% | Normal | +10% energy |
-| **Rain** | Normal | -20% | +Herbs | +15% morale |
-| **Pollution** | -Warnings | -40% | -30% | Morale risk |
-| **Storm** | Normal | None | Normal | Normal |
+| **Sunny** | Normal | +15% | Normal | +10% energy recovery |
+| **Rain** | Normal | −20% | +Herb yield | +15% morale |
+| **Pollution** | −Warning range | −40% | −30% | Morale risk |
+| **Storm** | Normal | No yield | Normal | Normal |
 
-## UI Layout: Herd Assignment
+---
+
+## Daily Resolution Sequence
+
+Resolution happens automatically when the player ends the day. See SleepSpecification.md for the full sleep phase. The grazing-specific resolution order is:
+
+1. Foragers return → inventory populated with target-modified yields
+2. Teaching resolves: Teacher distributes `100 × teacher_skill_level` XP divided equally among all assigned Students. Teacher personally gains +10 XP.
+3. Food consumption calculated → malnutrition check run
+4. Breeding resolves → pregnancies flagged, individual morale updated → herd morale recalculated
+5. Skill XP awarded to all horses for their assigned roles
+6. Storytellers spread journal memories → individual morale updated
+7. Priest/ess rites resolve (post-activation only) → culture trait gains and morale boosts applied
+8. Energy and food tick; weather carries into next morning
+
+---
+
+## UI Layout
+
 ```
-🌤️ SUNNY | 💚 HERD MORALE: 68/100 (Avg) | 🍎 AVG FOOD: 65% | 🥩 MALNUTRITION: 2 horses
+🌤️ SUNNY | 💚 HERD MORALE: 68/100 | 🍎 AVG FOOD: 65% | 🥩 MALNUTRITION: 2 horses
 
-HERD (28 horses)                          ROLE PROGRESS
-DawnFire     [Forager★] FOOD ITEMS       → 2,847/5k (+30 XP) [Reassign ▼]
-Ember        [Student☆] Healing         → Teacher: RiverSong [Reassign ▼] 
-RiverSong    [Teacher]  Healing         → 100XP÷2 students [LOCKED]
-StormChaser  [Sentinel★]                → Esroh watch        [Reassign ▼]
-Foal-Spark   [w/ mom]  [Socialize]      → +10 Social XP      [Reassign ▼]
-ElderLeaf    [Priestess]                → Day 4/7 (57%)      [LOCKED]
+HERD (28 horses)                           ROLE PROGRESS
+DawnFire     [Forager★] FOOD ITEMS        → 2,847/5k (+30 XP)        [Reassign ▼]
+Ember        [Student☆] Healing           → Teacher: RiverSong        [Reassign ▼]
+RiverSong    [Teacher]  Healing           → 100×Lv8 XP ÷ 2 students  [LOCKED]
+StormChaser  [Sentinel★]                  → Esroh watch               [Reassign ▼]
+Foal-Spark   [w/ mom]  [Socialize]        → +10 Social XP             [Reassign ▼]
+ElderLeaf    [Priestess]                  → Day 4/7 (57%)             [LOCKED]
+BrokenLeg    [Storyteller — auto]         → Active (injured Day 1)    [Reassign ▼]
 
 ROLE SUMMARY
 Forager: 4 (FOOD×1, Moonstone×1, Random×1, Herbs×1)
-Teaching: RiverSong → Ember(50XP), Spark(50XP)
+Teaching: RiverSong Lv8 → Ember (400 XP), Spark (400 XP)
 INDIVIDUAL MORALE: DawnFire(82) Ember(71) RiverSong(64)...
 
 FORAGER TARGETS: [KNOWN: Moonstone ●] [FOOD ○] [TRADE □] [MEDICINAL ■]
@@ -103,69 +185,15 @@ FORAGER TARGETS: [KNOWN: Moonstone ●] [FOOD ○] [TRADE □] [MEDICINAL ■]
 [ RELATIONSHIP MATRIX ] [ CRAFTING ] [ JOURNAL ] [ END DAY ]
 ```
 
-## Daily Resolution Sequence
-```
-1. Roles execute → Forager yields → inventory
-2. **Teaching**: 100XP ÷ Students (1 student = 100% transfer)
-3. **Food consumption** → Malnutrition check
-4. **Breeding** → Individual morale changes → Herd morale recalc
-5. **Skill XP gained** → Role progression
-6. **Storytellers** → Individual morale from shared memories
-7. **Priest/ess** → Culture-specific morale boosts
-8. Energy/food tick down, weather carries
-9. **Narrative journal** entry (survival vs Esroh/predators)
-```
+---
 
-## Progression Arc: Survival → Culture
+## Progression Arc
 
-**SURVIVAL PHASE** (Necrocratic Dragon threat):
-```
-All Sentinels/Foragers/Healers
-• Esroh patrols force constant movement
-• Predators → malnutrition deaths
-• No known forage → FOOD ITEMS focus
-• Herd morale <40 → panic risk
-```
-**You're prey animals** hiding from the Necrocratic Dragon's Esrohs.
+### Survival Phase
+All horses on Sentinels, Foragers, Healers. Esroh patrols force constant movement. No known forage — Food Items targeting is priority. Herd morale below 40 risks panic events. The herd is prey.
 
-**STABILIZATION PHASE**:
-```
-Scouts unlock KNOWN ITEMS
-Teachers create specialists
-Food security → first Storytellers
-```
+### Stabilization Phase
+Scouts begin unlocking Known Items. Teachers create the first specialists. Food security allows the first Storytellers. Cannot-walk elders become living memory anchors.
 
-**CULTURE PHASE** (late game):
-```
-Priestess + Storytellers maintain high herd morale
-Foals born with 1,000+ XP (mom + rites + teachers)
-Artisans fund alliances vs Necrocratic Dragon
-Specialized Forager teams (FOOD/MEDICINE/TRADE)
-```
-
-## Morale Integration (Individual → Herd)
-```
-HERD MORALE = AVG(all individual morale)
-Individual sources:
-• Storytellers: +3-8/horse listening
-• Socialize: +5-10/horse
-• Priestess: +10-20/herd
-• Breeding: +8/-10/pair
-• Malnutrition: -3/level
-
-LOW HERD MORALE EFFECTS (<40):
-• XP gain -30%, breeding -50%
-• Horses may flee Esroh encounters
-HIGH MORALE (>80): +15% yields, joiners approach
-```
-
-## Genetics Integration
-```
-ROLE BONUSES:
-• Stamina → Physical roles
-• Perception → Sentinel/Scout
-• Charisma → Storyteller/Socialize/Priestess
-FOALS: Mom's XP(10%) + Teacher + Rites
-```
-
-**Core progression**: Prey → Specialists → Culture warriors against the Necrocratic Dragon. Every role assignment builds this arc.
+### Culture Phase
+Priest/ess and Storytellers maintain high herd morale. Foals born into herds with active teachers and rites arrive with significant starting XP. Artisans fund alliances. Specialized Forager teams operate in parallel across Food, Medicine, and Trade targets.
